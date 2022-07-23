@@ -95,6 +95,10 @@ type IMod interface {
 	Mod(a any) (any, error)
 }
 
+type IRMod interface {
+	RMod(a any) (any, error)
+}
+
 type IDiv interface {
 	Div(a any) (any, error)
 }
@@ -244,6 +248,9 @@ func Div(a any, b any) (any, error) {
 func Mod(a any, b any) (any, error) {
 	if i, ok := a.(IMod); ok {
 		return i.Mod(b)
+	}
+	if i, ok := b.(IRMod); ok {
+		return i.RMod(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return modNumeric(a, b)
