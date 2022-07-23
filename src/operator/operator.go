@@ -5,6 +5,7 @@ import (
 	"github.com/gojinja/gojinja/src/utils/slices"
 	"math"
 	"reflect"
+	"strings"
 )
 
 func ToInt(v any) (i int64, ok bool) {
@@ -148,6 +149,10 @@ type IPos interface {
 
 type INeg interface {
 	Neg() (any, error)
+}
+
+type IContains interface {
+	Contains(a any) (bool, error)
 }
 
 func Mul(a any, b any) (any, error) {
@@ -389,6 +394,43 @@ func Neg(a any) (any, error) {
 		return multiplyNumeric(a, -1), nil
 	}
 	return nil, fmt.Errorf("given element is not negable")
+}
+
+func Contains(a, b any) (bool, error) {
+	if i, ok := a.(IContains); ok {
+		return i.Contains(b)
+	}
+	if bothString(a, b) {
+		return strings.Contains(a.(string), b.(string)), nil
+	}
+	switch reflect.TypeOf(a).Kind() {
+	case reflect.Array, reflect.Slice:
+		aV := reflect.ValueOf(a)
+		for i := 0; i < aV.Len(); i++ {
+			r, err := Eq(aV.Index(i).Interface(), b)
+			if err != nil {
+				return false, err
+			}
+			if r == true {
+				return true, nil
+			}
+		}
+		return false, nil
+	case reflect.Map:
+		aV := reflect.ValueOf(a)
+		iter := aV.MapRange()
+		for iter.Next() {
+			r, err := Eq(iter.Key().Interface(), b)
+			if err != nil {
+				return false, err
+			}
+			if r == true {
+				return true, nil
+			}
+		}
+		return false, nil
+	}
+	return false, fmt.Errorf("elements are not cointainable ")
 }
 
 func bothString(a, b any) bool {
