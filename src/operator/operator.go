@@ -1,0 +1,511 @@
+package operator
+
+import (
+	"fmt"
+	"github.com/gojinja/gojinja/src/utils/slices"
+	"math"
+	"reflect"
+)
+
+func ToInt(v any) (i int64, ok bool) {
+	if p, ok := v.(int); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(int8); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(int16); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(int32); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(uint); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(uint8); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(uint16); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(uint32); ok {
+		return int64(p), ok
+	}
+	if p, ok := v.(uint64); ok {
+		return int64(p), ok
+	}
+	i, ok = v.(int64)
+	return
+}
+
+func ToString(v any) string {
+	return fmt.Sprint(v)
+}
+
+func ToFloat(v any) (f float64, ok bool) {
+	if p, ok := v.(float32); ok {
+		return float64(p), ok
+	}
+	f, ok = v.(float64)
+	return
+}
+
+func ToComplex(v any) (c complex128, ok bool) {
+	if p, ok := v.(complex64); ok {
+		return complex128(p), ok
+	}
+	c, ok = v.(complex128)
+	return
+}
+
+func IsNumeric(v any) bool {
+	_, isInt := ToInt(v)
+	_, isFloat := ToFloat(v)
+	_, isComplex := ToComplex(v)
+	return isInt || isFloat || isComplex
+}
+
+type IMul interface {
+	Mul(a any) (any, error)
+}
+
+type IRMul interface {
+	RMul(a any) (any, error)
+}
+
+type IAdd interface {
+	Add(a any) (any, error)
+}
+
+type IRAdd interface {
+	RAdd(a any) (any, error)
+}
+
+type ISub interface {
+	Sub(a any) (any, error)
+}
+
+type IRSub interface {
+	RSub(a any) (any, error)
+}
+
+type IDiv interface {
+	Div(a any) (any, error)
+}
+
+type IRDiv interface {
+	RDiv(a any) (any, error)
+}
+
+type IFloorDiv interface {
+	FloorDiv(a any) (any, error)
+}
+
+type IRFloorDiv interface {
+	RFloorDiv(a any) (any, error)
+}
+
+type IPow interface {
+	Pow(a any) (any, error)
+}
+
+type IRPow interface {
+	RPow(a any) (any, error)
+}
+
+func Mul(a any, b any) (any, error) {
+	if imul, ok := a.(IMul); ok {
+		return imul.Mul(b)
+	}
+	if irmul, ok := b.(IRMul); ok {
+		return irmul.RMul(b)
+	}
+	if IsNumeric(a) {
+		if IsNumeric(b) {
+			return multiplyNumeric(a, b), nil
+		}
+		if aI, ok := ToInt(a); ok {
+			switch reflect.TypeOf(b).Kind() {
+			case reflect.Slice, reflect.Array:
+				return mulSliceByInt(b, aI), nil
+			case reflect.String:
+				return mulStrByInt(b.(string), aI), nil
+			}
+		}
+	} else {
+		if bI, ok := ToInt(b); ok {
+			switch reflect.TypeOf(a).Kind() {
+			case reflect.Slice, reflect.Array:
+				return mulSliceByInt(a, bI), nil
+			case reflect.String:
+				return mulStrByInt(a.(string), bI), nil
+			}
+		}
+	}
+	return nil, fmt.Errorf("given elements are not multipliable")
+}
+
+func Add(a any, b any) (any, error) {
+	if iadd, ok := a.(IAdd); ok {
+		return iadd.Add(b)
+	}
+	if irAdd, ok := b.(IRAdd); ok {
+		return irAdd.RAdd(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return addNumeric(a, b), nil
+
+	}
+	if aS, ok := a.(string); ok {
+		if bS, bOk := b.(string); bOk {
+			return aS + bS, nil
+		}
+	}
+	if slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(a).Kind()) &&
+		slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(b).Kind()) {
+		return addSlices(a, b), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not additible")
+}
+
+func Sub(a any, b any) (any, error) {
+	if i, ok := a.(ISub); ok {
+		return i.Sub(b)
+	}
+	if ir, ok := b.(IRSub); ok {
+		return ir.RSub(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return subNumeric(a, b), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not subable")
+}
+
+func Div(a any, b any) (any, error) {
+	if i, ok := a.(IDiv); ok {
+		return i.Div(b)
+	}
+	if ir, ok := b.(IRDiv); ok {
+		return ir.RDiv(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return divNumeric(a, b), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not divable")
+}
+
+func Pow(a any, b any) (any, error) {
+	if i, ok := a.(IPow); ok {
+		return i.Pow(b)
+	}
+	if ir, ok := b.(IRPow); ok {
+		return ir.RPow(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return powNumeric(a, b), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not powable")
+}
+
+func FloorDiv(a any, b any) (any, error) {
+	if i, ok := a.(IFloorDiv); ok {
+		return i.FloorDiv(b)
+	}
+	if ir, ok := b.(IRFloorDiv); ok {
+		return ir.RFloorDiv(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return floorDivNumeric(a, b), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not floor divable")
+}
+
+func addSlices(a, b any) []interface{} {
+	aV := reflect.ValueOf(a)
+	bV := reflect.ValueOf(b)
+
+	ret := make([]interface{}, 0, aV.Len()+bV.Len())
+	for i := 0; i < aV.Len(); i++ {
+		ret = append(ret, aV.Index(i).Interface())
+	}
+	for i := 0; i < bV.Len(); i++ {
+		ret = append(ret, bV.Index(i).Interface())
+	}
+	return ret
+}
+
+func mulStrByInt(a string, b int64) string {
+	res := ""
+	for i := int64(0); i < b; i++ {
+		res += a
+	}
+	return res
+}
+
+func mulSliceByInt(a any, b int64) interface{} {
+	t, v := reflect.TypeOf(a), reflect.ValueOf(a)
+	c := reflect.MakeSlice(t, v.Len()*int(b), v.Len()*int(b))
+	for i := 0; i < int(b); i++ {
+		reflect.Copy(c.Slice(i*v.Len(), (i+1)*v.Len()), v)
+	}
+	return c.Interface()
+}
+
+func multiplyNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v * b.(int64), nil
+		case float64:
+			return v * b.(float64), nil
+		case complex128:
+			return v * b.(complex128), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func addNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v + b.(int64), nil
+		case float64:
+			return v + b.(float64), nil
+		case complex128:
+			return v + b.(complex128), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func subNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v - b.(int64), nil
+		case float64:
+			return v - b.(float64), nil
+		case complex128:
+			return v - b.(complex128), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func powNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return int64(math.Pow(float64(v), float64(b.(int64)))), nil
+		case float64:
+			return math.Pow(v, b.(float64)), nil
+		case complex128:
+			// TODO impement
+			return nil, fmt.Errorf("pow on imaginary numbers is not implemented")
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func divNumeric(a any, b any) (any, error) {
+	return opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			bI := b.(int64)
+			if bI == 0 {
+				return nil, fmt.Errorf("div by 0")
+			}
+			return v / bI, nil
+		case float64:
+			bF := b.(float64)
+			if bF == 0 {
+				return nil, fmt.Errorf("div by 0")
+			}
+			return v / bF, nil
+		case complex128:
+			bC := b.(complex128)
+			if bC == 0 {
+				return nil, fmt.Errorf("div by 0")
+			}
+			return v / bC, nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+}
+
+func floorDivNumeric(a any, b any) (any, error) {
+	return opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			bI := b.(int64)
+			if bI == 0 {
+				return nil, fmt.Errorf("div by 0")
+			}
+			return v / bI, nil
+		case float64:
+			bF := b.(float64)
+			if bF == 0 {
+				return nil, fmt.Errorf("div by 0")
+			}
+			return math.Floor(v / bF), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+}
+
+func modNumeric(a any, b any) (any, error) {
+	return opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			bI := b.(int64)
+			if bI == 0 {
+				return nil, fmt.Errorf("modulo by 0")
+			}
+			return v % bI, nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+}
+
+func eqNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v == b.(int64), nil
+		case float64:
+			return v == b.(float64), nil
+		case complex128:
+			return v == b.(complex128), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func neNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v != b.(int64), nil
+		case float64:
+			return v != b.(float64), nil
+		case complex128:
+			return v != b.(complex128), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func leNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v < b.(int64), nil
+		case float64:
+			return v < b.(float64), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func ltNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v <= b.(int64), nil
+		case float64:
+			return v <= b.(float64), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func geNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v > b.(int64), nil
+		case float64:
+			return v > b.(float64), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func gtNumeric(a any, b any) any {
+	res, _ := opNumeric(a, b, func(a any, b any) (any, error) {
+		switch v := a.(type) {
+		case int64:
+			return v >= b.(int64), nil
+		case float64:
+			return v >= b.(float64), nil
+		default:
+			return nil, fmt.Errorf("wrong type")
+		}
+	})
+	return res
+}
+
+func opNumeric(a any, b any, op func(a any, b any) (any, error)) (any, error) {
+	if i, ok := ToInt(a); ok {
+		if i2, ok2 := ToInt(b); ok2 {
+			return op(i, i2)
+		}
+		if f2, ok2 := ToFloat(b); ok2 {
+			return op(float64(i), f2)
+		}
+		if c2, ok2 := ToComplex(b); ok2 {
+			return op(complex(float64(i), 0), c2)
+		}
+	}
+	if f, ok := ToFloat(a); ok {
+		if i2, ok2 := ToInt(b); ok2 {
+			return op(f, float64(i2))
+		}
+		if f2, ok2 := ToFloat(b); ok2 {
+			return op(f, f2)
+		}
+		if c2, ok2 := ToComplex(b); ok2 {
+			return op(complex(f, 0), c2)
+		}
+	}
+	if c, ok := ToComplex(a); ok {
+		if i2, ok2 := ToInt(b); ok2 {
+			return op(c, complex(float64(i2), 0))
+		}
+		if f2, ok2 := ToFloat(b); ok2 {
+			return op(c, complex(f2, 0))
+		}
+		if c2, ok2 := ToComplex(b); ok2 {
+			return op(c, c2)
+		}
+	}
+	return nil, fmt.Errorf("wrong type")
+}
