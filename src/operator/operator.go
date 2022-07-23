@@ -91,6 +91,10 @@ type IRSub interface {
 	RSub(a any) (any, error)
 }
 
+type IMod interface {
+	Mod(a any) (any, error)
+}
+
 type IDiv interface {
 	Div(a any) (any, error)
 }
@@ -232,6 +236,17 @@ func Div(a any, b any) (any, error) {
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return divNumeric(a, b)
+	}
+
+	return nil, fmt.Errorf("given elements are not divable")
+}
+
+func Mod(a any, b any) (any, error) {
+	if i, ok := a.(IMod); ok {
+		return i.Mod(b)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return modNumeric(a, b)
 	}
 
 	return nil, fmt.Errorf("given elements are not divable")
