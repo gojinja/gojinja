@@ -114,6 +114,42 @@ type IRPow interface {
 	RPow(a any) (any, error)
 }
 
+type IEq interface {
+	Eq(a any) (any, error)
+}
+
+type INe interface {
+	Ne(a any) (any, error)
+}
+
+type ILt interface {
+	Lt(a any) (any, error)
+}
+
+type ILe interface {
+	Le(a any) (any, error)
+}
+
+type IGt interface {
+	Gt(a any) (any, error)
+}
+
+type IGe interface {
+	Ge(a any) (any, error)
+}
+
+type INot interface {
+	Not() (any, error)
+}
+
+type IPos interface {
+	Pos(a any) (any, error)
+}
+
+type INeg interface {
+	Neg(a any) (any, error)
+}
+
 func Mul(a any, b any) (any, error) {
 	if imul, ok := a.(IMul); ok {
 		return imul.Mul(b)
@@ -157,10 +193,8 @@ func Add(a any, b any) (any, error) {
 		return addNumeric(a, b), nil
 
 	}
-	if aS, ok := a.(string); ok {
-		if bS, bOk := b.(string); bOk {
-			return aS + bS, nil
-		}
+	if bothString(a, b) {
+		return a.(string) + b.(string), nil
 	}
 	if slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(a).Kind()) &&
 		slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(b).Kind()) {
@@ -224,6 +258,108 @@ func FloorDiv(a any, b any) (any, error) {
 	}
 
 	return nil, fmt.Errorf("given elements are not floor divable")
+}
+
+func Eq(a any, b any) (any, error) {
+	if i, ok := a.(IEq); ok {
+		return i.Eq(b)
+	}
+	if i, ok := b.(IEq); ok {
+		return i.Eq(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return eqNumeric(a, b), nil
+	}
+
+	return reflect.DeepEqual(a, b), nil
+}
+
+func Ne(a any, b any) (any, error) {
+	if i, ok := a.(INe); ok {
+		return i.Ne(b)
+	}
+	if i, ok := b.(INe); ok {
+		return i.Ne(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return neNumeric(a, b), nil
+	}
+
+	return !reflect.DeepEqual(a, b), nil
+}
+
+func Ge(a any, b any) (any, error) {
+	if i, ok := a.(IGe); ok {
+		return i.Ge(b)
+	}
+	if i, ok := b.(ILe); ok {
+		return i.Le(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return geNumeric(a, b), nil
+	}
+	if bothString(a, b) {
+		return a.(string) > b.(string), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not geable")
+}
+
+func Le(a any, b any) (any, error) {
+	if i, ok := a.(ILe); ok {
+		return i.Le(b)
+	}
+	if i, ok := b.(IGe); ok {
+		return i.Ge(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return leNumeric(a, b), nil
+	}
+	if bothString(a, b) {
+		return a.(string) < b.(string), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not floor leable")
+}
+
+func Lt(a any, b any) (any, error) {
+	if i, ok := a.(ILt); ok {
+		return i.Lt(b)
+	}
+	if i, ok := b.(IGt); ok {
+		return i.Gt(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return ltNumeric(a, b), nil
+	}
+	if bothString(a, b) {
+		return a.(string) <= b.(string), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not floor ltable")
+}
+
+func Gt(a any, b any) (any, error) {
+	if i, ok := a.(IGt); ok {
+		return i.Gt(b)
+	}
+	if i, ok := b.(ILt); ok {
+		return i.Lt(a)
+	}
+	if IsNumeric(a) && IsNumeric(b) {
+		return gtNumeric(a, b), nil
+	}
+	if bothString(a, b) {
+		return a.(string) >= b.(string), nil
+	}
+
+	return nil, fmt.Errorf("given elements are not floor gtable")
+}
+
+func bothString(a, b any) bool {
+	_, aOk := a.(string)
+	_, bOk := b.(string)
+	return aOk && bOk
 }
 
 func addSlices(a, b any) []interface{} {
