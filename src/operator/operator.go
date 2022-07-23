@@ -380,7 +380,7 @@ func Bool(a any) (bool, error) {
 	if i, ok := a.(IBool); ok {
 		return i.Bool()
 	}
-	return reflect.ValueOf(a).IsZero(), nil
+	return !reflect.ValueOf(a).IsZero(), nil
 }
 
 func Not(a any) (bool, error) {
