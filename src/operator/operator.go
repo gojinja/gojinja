@@ -138,16 +138,16 @@ type IGe interface {
 	Ge(a any) (any, error)
 }
 
-type INot interface {
-	Not() (any, error)
+type IBool interface {
+	Bool() (bool, error)
 }
 
 type IPos interface {
-	Pos(a any) (any, error)
+	Pos() (any, error)
 }
 
 type INeg interface {
-	Neg(a any) (any, error)
+	Neg() (any, error)
 }
 
 func Mul(a any, b any) (any, error) {
@@ -354,6 +354,41 @@ func Gt(a any, b any) (any, error) {
 	}
 
 	return nil, fmt.Errorf("given elements are not floor gtable")
+}
+
+func Bool(a any) (bool, error) {
+	if i, ok := a.(IBool); ok {
+		return i.Bool()
+	}
+	return reflect.ValueOf(a).IsZero(), nil
+}
+
+func Not(a any) (bool, error) {
+	b, err := Bool(a)
+	if err != nil {
+		return b, err
+	}
+	return !b, nil
+}
+
+func Pos(a any) (any, error) {
+	if i, ok := a.(IPos); ok {
+		return i.Pos()
+	}
+	if IsNumeric(a) {
+		return a, nil
+	}
+	return nil, fmt.Errorf("given element is not posable")
+}
+
+func Neg(a any) (any, error) {
+	if i, ok := a.(INeg); ok {
+		return i.Neg()
+	}
+	if IsNumeric(a) {
+		return multiplyNumeric(a, -1), nil
+	}
+	return nil, fmt.Errorf("given element is not negable")
 }
 
 func bothString(a, b any) bool {
