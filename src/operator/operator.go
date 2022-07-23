@@ -231,7 +231,7 @@ func Div(a any, b any) (any, error) {
 		return ir.RDiv(b)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
-		return divNumeric(a, b), nil
+		return divNumeric(a, b)
 	}
 
 	return nil, fmt.Errorf("given elements are not divable")
@@ -259,7 +259,7 @@ func FloorDiv(a any, b any) (any, error) {
 		return ir.RFloorDiv(b)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
-		return floorDivNumeric(a, b), nil
+		return floorDivNumeric(a, b)
 	}
 
 	return nil, fmt.Errorf("given elements are not floor divable")
