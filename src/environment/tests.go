@@ -3,6 +3,7 @@ package environment
 import (
 	"fmt"
 	"github.com/gojinja/gojinja/src/runtime"
+	"github.com/gojinja/gojinja/src/utils/numbers"
 	"github.com/gojinja/gojinja/src/utils/slices"
 	"reflect"
 	"strings"
@@ -12,67 +13,19 @@ func getInt(idx int, values ...any) (int64, error) {
 	if len(values) <= idx {
 		return 0, fmt.Errorf("not enough values passed to the test")
 	}
-	res, ok := toInt(values[idx])
+	res, ok := numbers.ToInt(values[idx])
 	if !ok {
 		return 0, fmt.Errorf("value passed to the test is not an integer")
 	}
 	return res, nil
 }
 
-func toInt(v any) (i int64, ok bool) {
-	if p, ok := v.(int); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int8); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int16); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int32); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint8); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint16); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint32); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint64); ok {
-		return int64(p), ok
-	}
-	i, ok = v.(int64)
-	return
-}
-
 func toString(v any) string {
 	return fmt.Sprint(v)
 }
 
-func toFloat(v any) (f float64, ok bool) {
-	if p, ok := v.(float32); ok {
-		return float64(p), ok
-	}
-	f, ok = v.(float64)
-	return
-}
-
-func toComplex(v any) (c complex128, ok bool) {
-	if p, ok := v.(complex64); ok {
-		return complex128(p), ok
-	}
-	c, ok = v.(complex128)
-	return
-}
-
 func testOdd(_ *Environment, f any, _ ...any) (bool, error) {
-	value, ok := toInt(f)
+	value, ok := numbers.ToInt(f)
 	if !ok {
 		return false, fmt.Errorf("value passed to the test is not an integer")
 	}
@@ -80,7 +33,7 @@ func testOdd(_ *Environment, f any, _ ...any) (bool, error) {
 }
 
 func testEven(_ *Environment, f any, _ ...any) (bool, error) {
-	value, ok := toInt(f)
+	value, ok := numbers.ToInt(f)
 	if !ok {
 		return false, fmt.Errorf("value passed to the test is not an integer")
 	}
@@ -88,7 +41,7 @@ func testEven(_ *Environment, f any, _ ...any) (bool, error) {
 }
 
 func testDivisibleBy(_ *Environment, f any, values ...any) (bool, error) {
-	value, ok := toInt(f)
+	value, ok := numbers.ToInt(f)
 	if !ok {
 		return false, fmt.Errorf("value passed to the test is not an integer")
 	}
@@ -148,12 +101,12 @@ func testTrue(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testInteger(_ *Environment, value any, _ ...any) (bool, error) {
-	_, ok := toInt(value)
+	_, ok := numbers.ToInt(value)
 	return ok, nil
 }
 
 func testFloat(_ *Environment, value any, _ ...any) (bool, error) {
-	_, ok := toFloat(value)
+	_, ok := numbers.ToFloat(value)
 	return ok, nil
 }
 
@@ -177,11 +130,7 @@ func testMapping(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testNumber(_ *Environment, value any, _ ...any) (bool, error) {
-	_, isInt := toInt(value)
-	_, isFloat := toFloat(value)
-	_, isComplex := toComplex(value)
-
-	return isInt || isFloat || isComplex, nil
+	return numbers.IsNumeric(value), nil
 }
 
 func testSequence(_ *Environment, value any, _ ...any) (bool, error) {
