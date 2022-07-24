@@ -290,7 +290,7 @@ func (cu ChainableUndefined) HTML() (string, error) {
 	return cu.String_()
 }
 
-func (cu ChainableUndefined) GetAttr() (any, error) {
+func (cu ChainableUndefined) GetAttr(string) (any, error) {
 	return cu, nil
 }
 
