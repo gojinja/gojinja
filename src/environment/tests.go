@@ -2,6 +2,7 @@ package environment
 
 import (
 	"fmt"
+	"github.com/gojinja/gojinja/src/operator"
 	"github.com/gojinja/gojinja/src/runtime"
 	"github.com/gojinja/gojinja/src/utils/numbers"
 	"github.com/gojinja/gojinja/src/utils/slices"
@@ -187,33 +188,10 @@ func testEscaped(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testIn(_ *Environment, value any, values ...any) (bool, error) {
-	// TODO rewrite using operator contains
 	if len(values) == 0 {
 		return false, fmt.Errorf("not enough values passed to the function")
 	}
-
-	switch reflect.TypeOf(values[0]).Kind() {
-	case reflect.Slice:
-		s := reflect.ValueOf(values[0])
-		for i := 0; i < s.Len(); i++ {
-			if value == s.Index(i).Interface() {
-				return true, nil
-			}
-		}
-		return false, nil
-	case reflect.Map:
-		s := reflect.ValueOf(values[0])
-		v := s.MapIndex(reflect.ValueOf(value))
-		return v != reflect.Value{}, nil
-	case reflect.String:
-		v := values[0].(string)
-		if vS, ok := value.(string); ok {
-			return strings.Contains(v, vS), nil
-		}
-		return false, nil
-	default:
-		return false, fmt.Errorf("second arguemnt is not a slice")
-	}
+	return operator.Contains(values[0], value)
 }
 
 // Test represents a test function. Some tests only require one variable
@@ -240,9 +218,33 @@ var Default = map[string]Test{
 	"number":      testNumber,
 	"sequence":    testSequence,
 	"iterable":    testIterable,
-	"in":          testIn,
 	"callable":    testCallable,
 	"sameas":      testSameAs,
 	"escaped":     testEscaped,
-	// TODO operators
+	"in":          testIn,
+	"==":          wrapOperator(operator.Eq),
+	"eq":          wrapOperator(operator.Eq),
+	"equalto":     wrapOperator(operator.Eq),
+	"!=":          wrapOperator(operator.Ne),
+	"ne":          wrapOperator(operator.Ne),
+	">":           wrapOperator(operator.Gt),
+	"gt":          wrapOperator(operator.Gt),
+	"greaterthan": wrapOperator(operator.Gt),
+	"<":           wrapOperator(operator.Lt),
+	"lt":          wrapOperator(operator.Lt),
+	"lessthan":    wrapOperator(operator.Lt),
+	"<=":          wrapOperator(operator.Le),
+	"le":          wrapOperator(operator.Le),
+	">=":          wrapOperator(operator.Ge),
+	"ge":          wrapOperator(operator.Ge),
+}
+
+func wrapOperator(op func(any, any) (any, error)) Test {
+	return func(_ *Environment, f any, values ...any) (bool, error) {
+		if len(values) == 0 {
+			return false, fmt.Errorf("not enough values passed to the function")
+		}
+		res, err := op(f, values[0])
+		return res == true, err
+	}
 }

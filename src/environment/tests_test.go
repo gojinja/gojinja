@@ -339,7 +339,7 @@ func TestIn(t *testing.T) {
 		{nil, "bar", []any{[]string{"foo", "bar"}}, true, false},
 		{nil, "", []any{[]string{"foo", "bar"}}, false, false},
 		{nil, "a", []any{"Ala"}, true, false},
-		{nil, 'a', []any{"Ala"}, false, false},
+		{nil, 'a', []any{"Ala"}, false, true},
 		{nil, "o", []any{"Ala"}, false, false},
 		{nil, 'o', []any{0}, false, true},
 		{nil, "o", []any{map[string]string{"o": "o"}}, true, false},

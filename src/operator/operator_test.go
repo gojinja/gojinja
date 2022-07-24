@@ -44,6 +44,7 @@ func TestAdd(t *testing.T) {
 		{3, complex(0, 1), complex(3, 1), false},
 		{"foo", "bar", "foobar", false},
 		{[]string{"foo"}, []int{3}, []any{"foo", 3}, false},
+		{[]string{"foo"}, []string{"bar"}, []string{"foo", "bar"}, false},
 		{iAdd{}, 21, int64(42), false},
 		{3, iRAdd{}, int64(24), false},
 		{"3", iRAdd{}, nil, true},

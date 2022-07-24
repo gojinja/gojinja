@@ -150,9 +150,9 @@ func Add(a any, b any) (any, error) {
 	if bothString(a, b) {
 		return a.(string) + b.(string), nil
 	}
-	if slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(a).Kind()) &&
-		slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, reflect.TypeOf(b).Kind()) {
-		return addSlices(a, b), nil
+	res, ok := addSlices(a, b)
+	if ok {
+		return res, nil
 	}
 
 	return nil, fmt.Errorf("given elements can't be added")
@@ -407,18 +407,33 @@ func bothString(a, b any) bool {
 	return aOk && bOk
 }
 
-func addSlices(a, b any) []interface{} {
+func addSlices(a, b any) (any, bool) {
+	aT := reflect.TypeOf(a)
+	bT := reflect.TypeOf(b)
+
+	if !slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, aT.Kind()) ||
+		!slices.Contains([]reflect.Kind{reflect.Slice, reflect.Array}, bT.Kind()) {
+		return nil, false
+	}
+
 	aV := reflect.ValueOf(a)
 	bV := reflect.ValueOf(b)
 
-	ret := make([]interface{}, 0, aV.Len()+bV.Len())
+	size := aV.Len() + bV.Len()
+	if aT == bT {
+		slice := reflect.MakeSlice(aT, size, size)
+		reflect.Copy(slice, aV)
+		reflect.Copy(slice.Slice(aV.Len(), size), bV)
+		return slice.Interface(), true
+	}
+	ret := make([]interface{}, 0, size)
 	for i := 0; i < aV.Len(); i++ {
 		ret = append(ret, aV.Index(i).Interface())
 	}
 	for i := 0; i < bV.Len(); i++ {
 		ret = append(ret, bV.Index(i).Interface())
 	}
-	return ret
+	return ret, true
 }
 
 func mulStrByInt(a string, b int64) string {
