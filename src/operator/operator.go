@@ -174,7 +174,7 @@ func Mul(a any, b any) (any, error) {
 		return imul.Mul(b)
 	}
 	if irmul, ok := b.(IRMul); ok {
-		return irmul.RMul(b)
+		return irmul.RMul(a)
 	}
 	if IsNumeric(a) {
 		if IsNumeric(b) {
@@ -206,7 +206,7 @@ func Add(a any, b any) (any, error) {
 		return iadd.Add(b)
 	}
 	if irAdd, ok := b.(IRAdd); ok {
-		return irAdd.RAdd(b)
+		return irAdd.RAdd(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return addNumeric(a, b), nil
@@ -227,7 +227,7 @@ func Sub(a any, b any) (any, error) {
 		return i.Sub(b)
 	}
 	if ir, ok := b.(IRSub); ok {
-		return ir.RSub(b)
+		return ir.RSub(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return subNumeric(a, b), nil
@@ -241,7 +241,7 @@ func Div(a any, b any) (any, error) {
 		return i.Div(b)
 	}
 	if ir, ok := b.(IRDiv); ok {
-		return ir.RDiv(b)
+		return ir.RDiv(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return divNumeric(a, b)
@@ -269,7 +269,7 @@ func Pow(a any, b any) (any, error) {
 		return i.Pow(b)
 	}
 	if ir, ok := b.(IRPow); ok {
-		return ir.RPow(b)
+		return ir.RPow(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return powNumeric(a, b), nil
@@ -283,7 +283,7 @@ func FloorDiv(a any, b any) (any, error) {
 		return i.FloorDiv(b)
 	}
 	if ir, ok := b.(IRFloorDiv); ok {
-		return ir.RFloorDiv(b)
+		return ir.RFloorDiv(a)
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return floorDivNumeric(a, b)
@@ -303,6 +303,7 @@ func Eq(a any, b any) (any, error) {
 		return eqNumeric(a, b), nil
 	}
 
+	// TODO only reflect deep equal on types that python would do.
 	return reflect.DeepEqual(a, b), nil
 }
 
@@ -334,6 +335,7 @@ func Ge(a any, b any) (any, error) {
 		return a.(string) > b.(string), nil
 	}
 
+	// TODO compare on lists.
 	return nil, fmt.Errorf("given elements can't be compared")
 }
 
@@ -351,6 +353,7 @@ func Le(a any, b any) (any, error) {
 		return a.(string) < b.(string), nil
 	}
 
+	// TODO compare on lists.
 	return nil, fmt.Errorf("given elements can't be compared")
 }
 
@@ -368,6 +371,7 @@ func Lt(a any, b any) (any, error) {
 		return a.(string) <= b.(string), nil
 	}
 
+	// TODO compare on lists.
 	return nil, fmt.Errorf("given elements can't be compared")
 }
 
@@ -385,6 +389,7 @@ func Gt(a any, b any) (any, error) {
 		return a.(string) >= b.(string), nil
 	}
 
+	// TODO compare on lists.
 	return nil, fmt.Errorf("given elements can't be compared")
 }
 
