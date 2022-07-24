@@ -2,8 +2,8 @@ package lexer
 
 import (
 	"fmt"
-	"github.com/gojinja/gojinja/src/utils/maps"
 	"github.com/gojinja/gojinja/src/utils/set"
+	"golang.org/x/exp/maps"
 	"os"
 	"regexp"
 	"sort"

@@ -7,8 +7,8 @@ import (
 	"github.com/gojinja/gojinja/src/lexer"
 	"github.com/gojinja/gojinja/src/nodes"
 	"github.com/gojinja/gojinja/src/utils/set"
-	"github.com/gojinja/gojinja/src/utils/slices"
 	"github.com/gojinja/gojinja/src/utils/stack"
+	"golang.org/x/exp/slices"
 	"reflect"
 	"strings"
 )
