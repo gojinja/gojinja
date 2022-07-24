@@ -15,6 +15,12 @@ type binCase struct {
 	err bool
 }
 
+type unaryCase[T any] struct {
+	a   any
+	res T
+	err bool
+}
+
 type iAdd struct{}
 
 func (i iAdd) Add(a any) (any, error) {
@@ -155,6 +161,64 @@ func TestLe(t *testing.T) {
 		{true, true, false, true},
 		{3, "4", false, true},
 	})
+}
+
+type iLen struct{}
+
+func (iLen) Len() (int, error) {
+	return 42, nil
+}
+
+var _ ILen = iLen{}
+
+func TestLen(t *testing.T) {
+	runUnaryTestCases(t, Len, []unaryCase[int]{
+		{0, 0, true},
+		{[]any{}, 0, false},
+		{[]any{42}, 1, false},
+		{"foo", 3, false},
+		{map[string]string{"foo": "bar"}, 1, false},
+		{iLen{}, 42, false},
+		{nil, 0, true},
+	})
+}
+
+type iGetItem struct{}
+
+func (iGetItem) GetItem(any) (any, error) {
+	return 42, nil
+}
+
+var _ IGetItem = iGetItem{}
+
+func TestGetItem(t *testing.T) {
+	runBinTestCases(t, GetItem, []binCase{
+		{[]string{"foo"}, 0, "foo", false},
+		{map[string]string{"foo": "bar"}, "foo", "bar", false},
+		{map[string]string{"foo": "bar"}, "bar", nil, true},
+		{[]string{"foo"}, 1, nil, true},
+		{"foo", 1, byte('o'), false},
+		{"foo", "1", nil, true},
+		{1, 1, nil, true},
+		{iGetItem{}, 1, 42, false},
+	})
+}
+
+func runUnaryTestCases[T any](t *testing.T, unaryOp func(any) (T, error), cases []unaryCase[T]) {
+	for _, c := range cases {
+		res, err := unaryOp(c.a)
+		if err != nil {
+			if c.err {
+				continue
+			}
+			t.Fatal(err, spew.Sprint(c))
+		} else if c.err {
+			t.Fatal("expected error, got:", res, spew.Sprint(c))
+		}
+		if !reflect.DeepEqual(res, c.res) {
+			t.Fatal("got:", spew.Sprint(res), ",expected:", spew.Sprint(c.res), spew.Sprint(c))
+		}
+	}
 }
 
 func runBinTestCases(t *testing.T, binOp func(any, any) (any, error), cases []binCase) {
