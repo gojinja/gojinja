@@ -2,76 +2,12 @@ package operator
 
 import (
 	"fmt"
+	"github.com/gojinja/gojinja/src/utils/numbers"
 	"github.com/gojinja/gojinja/src/utils/slices"
 	"math"
 	"reflect"
 	"strings"
 )
-
-func ToInt(v any) (i int64, ok bool) {
-	if p, ok := v.(int); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int8); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int16); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(int32); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint8); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint16); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint32); ok {
-		return int64(p), ok
-	}
-	if p, ok := v.(uint64); ok {
-		return int64(p), ok
-	}
-	i, ok = v.(int64)
-	return
-}
-
-func ToString(v any) string {
-	return fmt.Sprint(v)
-}
-
-func ToFloat(v any) (f float64, ok bool) {
-	if p, ok := v.(float32); ok {
-		return float64(p), ok
-	}
-	f, ok = v.(float64)
-	return
-}
-
-func ToComplex(v any) (c complex128, ok bool) {
-	if p, ok := v.(complex64); ok {
-		return complex128(p), ok
-	}
-	c, ok = v.(complex128)
-	return
-}
-
-func IsNumeric(v any) bool {
-	_, isInt := ToInt(v)
-	if isInt {
-		return true
-	}
-	_, isFloat := ToFloat(v)
-	if isFloat {
-		return true
-	}
-	_, isComplex := ToComplex(v)
-	return isComplex
-}
 
 type IMul interface {
 	Mul(a any) (any, error)
@@ -176,11 +112,11 @@ func Mul(a any, b any) (any, error) {
 	if irmul, ok := b.(IRMul); ok {
 		return irmul.RMul(a)
 	}
-	if IsNumeric(a) {
-		if IsNumeric(b) {
+	if numbers.IsNumeric(a) {
+		if numbers.IsNumeric(b) {
 			return multiplyNumeric(a, b), nil
 		}
-		if aI, ok := ToInt(a); ok {
+		if aI, ok := numbers.ToInt(a); ok {
 			switch reflect.TypeOf(b).Kind() {
 			case reflect.Slice, reflect.Array:
 				return mulSliceByInt(b, aI), nil
@@ -189,7 +125,7 @@ func Mul(a any, b any) (any, error) {
 			}
 		}
 	} else {
-		if bI, ok := ToInt(b); ok {
+		if bI, ok := numbers.ToInt(b); ok {
 			switch reflect.TypeOf(a).Kind() {
 			case reflect.Slice, reflect.Array:
 				return mulSliceByInt(a, bI), nil
@@ -208,7 +144,7 @@ func Add(a any, b any) (any, error) {
 	if irAdd, ok := b.(IRAdd); ok {
 		return irAdd.RAdd(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return addNumeric(a, b), nil
 	}
 	if bothString(a, b) {
@@ -229,7 +165,7 @@ func Sub(a any, b any) (any, error) {
 	if ir, ok := b.(IRSub); ok {
 		return ir.RSub(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return subNumeric(a, b), nil
 	}
 
@@ -243,7 +179,7 @@ func Div(a any, b any) (any, error) {
 	if ir, ok := b.(IRDiv); ok {
 		return ir.RDiv(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return divNumeric(a, b)
 	}
 
@@ -257,7 +193,7 @@ func Mod(a any, b any) (any, error) {
 	if i, ok := b.(IRMod); ok {
 		return i.RMod(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return modNumeric(a, b)
 	}
 
@@ -271,7 +207,7 @@ func Pow(a any, b any) (any, error) {
 	if ir, ok := b.(IRPow); ok {
 		return ir.RPow(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return powNumeric(a, b), nil
 	}
 
@@ -285,7 +221,7 @@ func FloorDiv(a any, b any) (any, error) {
 	if ir, ok := b.(IRFloorDiv); ok {
 		return ir.RFloorDiv(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return floorDivNumeric(a, b)
 	}
 
@@ -299,7 +235,7 @@ func Eq(a any, b any) (any, error) {
 	if i, ok := b.(IEq); ok {
 		return i.Eq(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return eqNumeric(a, b), nil
 	}
 
@@ -314,7 +250,7 @@ func Ne(a any, b any) (any, error) {
 	if i, ok := b.(INe); ok {
 		return i.Ne(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return neNumeric(a, b), nil
 	}
 
@@ -328,7 +264,7 @@ func Ge(a any, b any) (any, error) {
 	if i, ok := b.(ILe); ok {
 		return i.Le(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return geNumeric(a, b), nil
 	}
 	if bothString(a, b) {
@@ -346,7 +282,7 @@ func Le(a any, b any) (any, error) {
 	if i, ok := b.(IGe); ok {
 		return i.Ge(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return leNumeric(a, b), nil
 	}
 	if bothString(a, b) {
@@ -364,7 +300,7 @@ func Lt(a any, b any) (any, error) {
 	if i, ok := b.(IGt); ok {
 		return i.Gt(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return ltNumeric(a, b), nil
 	}
 	if bothString(a, b) {
@@ -382,7 +318,7 @@ func Gt(a any, b any) (any, error) {
 	if i, ok := b.(ILt); ok {
 		return i.Lt(a)
 	}
-	if IsNumeric(a) && IsNumeric(b) {
+	if numbers.IsNumeric(a) && numbers.IsNumeric(b) {
 		return gtNumeric(a, b), nil
 	}
 	if bothString(a, b) {
@@ -412,7 +348,7 @@ func Pos(a any) (any, error) {
 	if i, ok := a.(IPos); ok {
 		return i.Pos()
 	}
-	if IsNumeric(a) {
+	if numbers.IsNumeric(a) {
 		return a, nil
 	}
 	return nil, fmt.Errorf("given element can't return positive value")
@@ -422,7 +358,7 @@ func Neg(a any) (any, error) {
 	if i, ok := a.(INeg); ok {
 		return i.Neg()
 	}
-	if IsNumeric(a) {
+	if numbers.IsNumeric(a) {
 		return multiplyNumeric(a, -1), nil
 	}
 	return nil, fmt.Errorf("given element can't be negated")
@@ -719,36 +655,36 @@ func gtNumeric(a any, b any) any {
 }
 
 func opNumeric(a any, b any, op func(a any, b any) (any, error)) (any, error) {
-	if i, ok := ToInt(a); ok {
-		if i2, ok2 := ToInt(b); ok2 {
+	if i, ok := numbers.ToInt(a); ok {
+		if i2, ok2 := numbers.ToInt(b); ok2 {
 			return op(i, i2)
 		}
-		if f2, ok2 := ToFloat(b); ok2 {
+		if f2, ok2 := numbers.ToFloat(b); ok2 {
 			return op(float64(i), f2)
 		}
-		if c2, ok2 := ToComplex(b); ok2 {
+		if c2, ok2 := numbers.ToComplex(b); ok2 {
 			return op(complex(float64(i), 0), c2)
 		}
 	}
-	if f, ok := ToFloat(a); ok {
-		if i2, ok2 := ToInt(b); ok2 {
+	if f, ok := numbers.ToFloat(a); ok {
+		if i2, ok2 := numbers.ToInt(b); ok2 {
 			return op(f, float64(i2))
 		}
-		if f2, ok2 := ToFloat(b); ok2 {
+		if f2, ok2 := numbers.ToFloat(b); ok2 {
 			return op(f, f2)
 		}
-		if c2, ok2 := ToComplex(b); ok2 {
+		if c2, ok2 := numbers.ToComplex(b); ok2 {
 			return op(complex(f, 0), c2)
 		}
 	}
-	if c, ok := ToComplex(a); ok {
-		if i2, ok2 := ToInt(b); ok2 {
+	if c, ok := numbers.ToComplex(a); ok {
+		if i2, ok2 := numbers.ToInt(b); ok2 {
 			return op(c, complex(float64(i2), 0))
 		}
-		if f2, ok2 := ToFloat(b); ok2 {
+		if f2, ok2 := numbers.ToFloat(b); ok2 {
 			return op(c, complex(f2, 0))
 		}
-		if c2, ok2 := ToComplex(b); ok2 {
+		if c2, ok2 := numbers.ToComplex(b); ok2 {
 			return op(c, c2)
 		}
 	}

@@ -3,6 +3,7 @@ package operator
 import (
 	"fmt"
 	"github.com/davecgh/go-spew/spew"
+	"github.com/gojinja/gojinja/src/utils/numbers"
 	"reflect"
 	"testing"
 )
@@ -17,7 +18,7 @@ type binCase struct {
 type iAdd struct{}
 
 func (i iAdd) Add(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return addNumeric(21, a), nil
@@ -28,7 +29,7 @@ var _ IAdd = iAdd{}
 type iRAdd struct{}
 
 func (i iRAdd) RAdd(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return addNumeric(21, a), nil
@@ -57,7 +58,7 @@ func TestAdd(t *testing.T) {
 type iMul struct{}
 
 func (i iMul) Mul(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return multiplyNumeric(2, a), nil
@@ -68,7 +69,7 @@ var _ IMul = iMul{}
 type iRMul struct{}
 
 func (i iRMul) RMul(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return multiplyNumeric(2, a), nil
@@ -122,7 +123,7 @@ func TestEq(t *testing.T) {
 type iLe struct{}
 
 func (i iLe) Le(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return leNumeric(42, a), nil
@@ -133,7 +134,7 @@ var _ ILe = iLe{}
 type iGe struct{}
 
 func (i iGe) Ge(a any) (any, error) {
-	if !IsNumeric(a) {
+	if !numbers.IsNumeric(a) {
 		return nil, fmt.Errorf("expected numeric")
 	}
 	return geNumeric(42, a), nil
