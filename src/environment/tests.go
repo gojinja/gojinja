@@ -145,7 +145,9 @@ func testSequence(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testCallable(_ *Environment, value any, _ ...any) (bool, error) {
-	// TODO rewrite using operator call
+	if _, ok := value.(operator.ICall); ok {
+		return true, nil
+	}
 	return reflect.TypeOf(value).Kind() == reflect.Func, nil
 }
 
