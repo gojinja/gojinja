@@ -171,13 +171,8 @@ func testSameAs(_ *Environment, value any, values ...any) (bool, error) {
 }
 
 func testIterable(_ *Environment, value any, _ ...any) (bool, error) {
-	// TODO rewrite using operator iter
-	switch reflect.TypeOf(value).Kind() {
-	case reflect.Slice, reflect.Array, reflect.Map, reflect.String, reflect.Chan:
-		return true, nil
-	default:
-		return false, nil
-	}
+	_, err := operator.Iter(value)
+	return err == nil, nil
 }
 
 type Escaped interface {
