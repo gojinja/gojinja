@@ -135,7 +135,8 @@ func testNumber(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testSequence(_ *Environment, value any, _ ...any) (bool, error) {
-	if slices.Contains([]reflect.Kind{reflect.Array, reflect.Slice, reflect.Map, reflect.String}, reflect.ValueOf(value).Kind()) {
+	switch reflect.TypeOf(value).Kind() {
+	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
 		return true, nil
 	}
 	if _, err := operator.Len(value); err != nil {
