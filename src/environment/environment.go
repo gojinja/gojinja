@@ -7,9 +7,10 @@ import (
 	"github.com/gojinja/gojinja/src/filters"
 	"github.com/gojinja/gojinja/src/lexer"
 	"github.com/gojinja/gojinja/src/runtime"
-	"github.com/gojinja/gojinja/src/utils/maps"
-	"github.com/gojinja/gojinja/src/utils/slices"
+	"github.com/gojinja/gojinja/src/utils/mapUtils"
 	lru "github.com/hashicorp/golang-lru"
+	"golang.org/x/exp/maps"
+	"golang.org/x/exp/slices"
 	"log"
 	"strings"
 )
@@ -77,10 +78,10 @@ func New(opts *EnvOpts) (*Environment, error) {
 		Finalize:            opts.Finalize,
 		Loader:              opts.Loader,
 		AutoReload:          opts.AutoReload,
-		Filters:             maps.Copy(filters.Default),
-		Tests:               maps.Copy(Default),
-		Globals:             maps.Copy(defaults.DefaultNamespace),
-		Policies:            maps.Copy(defaults.DefaultPolicies),
+		Filters:             maps.Clone(filters.Default),
+		Tests:               maps.Clone(Default),
+		Globals:             maps.Clone(defaults.DefaultNamespace),
+		Policies:            maps.Clone(defaults.DefaultPolicies),
 	}
 	env.AutoEscape, err = convertAutoEscape(opts.AutoEscape)
 	if err != nil {
@@ -208,7 +209,7 @@ func (env *Environment) loadTemplate(name string, globals map[string]any) (ITemp
 		if ok {
 			tmpl := template.(ITemplate)
 			if !env.AutoReload && tmpl.IsUpToDate() {
-				maps.Update(tmpl.Globals(), globals)
+				maps.Copy(tmpl.Globals(), globals)
 			}
 			return tmpl, nil
 		}
@@ -224,5 +225,5 @@ func (env *Environment) loadTemplate(name string, globals map[string]any) (ITemp
 }
 
 func (env *Environment) MakeGlobals(globals map[string]any) map[string]any {
-	return maps.Chain(globals, env.Globals)
+	return mapUtils.Chain(globals, env.Globals)
 }

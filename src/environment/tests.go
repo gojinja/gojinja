@@ -5,7 +5,7 @@ import (
 	"github.com/gojinja/gojinja/src/operator"
 	"github.com/gojinja/gojinja/src/runtime"
 	"github.com/gojinja/gojinja/src/utils/numbers"
-	"github.com/gojinja/gojinja/src/utils/slices"
+	"golang.org/x/exp/slices"
 	"reflect"
 	"strings"
 )

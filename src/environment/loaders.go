@@ -4,7 +4,7 @@ import (
 	"github.com/gojinja/gojinja/src/encoding"
 	"github.com/gojinja/gojinja/src/errors"
 	"github.com/gojinja/gojinja/src/utils"
-	"github.com/gojinja/gojinja/src/utils/maps"
+	"github.com/gojinja/gojinja/src/utils/mapUtils"
 	"io/fs"
 	"os"
 	"path"
@@ -117,7 +117,7 @@ func (f fsLoader) ListTemplates() ([]string, error) {
 			return nil, err
 		}
 	}
-	return maps.SortedKeys(found), nil
+	return mapUtils.SortedKeys(found), nil
 }
 
 func NewFileSystemLoader[S utils.StrOrSlice](searchPath S, encoding string, followLinks bool) *Loader {

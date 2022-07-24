@@ -3,7 +3,7 @@ package operator
 import (
 	"fmt"
 	"github.com/gojinja/gojinja/src/utils/numbers"
-	"github.com/gojinja/gojinja/src/utils/slices"
+	"golang.org/x/exp/slices"
 	"math"
 	"reflect"
 	"strings"

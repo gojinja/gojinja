@@ -1,6 +1,6 @@
 package nodes
 
-import "github.com/gojinja/gojinja/src/utils/slices"
+import "golang.org/x/exp/slices"
 
 type Node interface {
 	GetLineno() int
