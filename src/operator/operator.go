@@ -105,6 +105,14 @@ type IContains interface {
 	Contains(a any) (bool, error)
 }
 
+type ILen interface {
+	Len() (int, error)
+}
+
+type IGetItem interface {
+	GetItem(any) (any, error)
+}
+
 func Mul(a any, b any) (any, error) {
 	if imul, ok := a.(IMul); ok {
 		return imul.Mul(b)
@@ -329,6 +337,32 @@ func Gt(a any, b any) (any, error) {
 	return nil, fmt.Errorf("given elements can't be compared")
 }
 
+func GetItem(a any, b any) (any, error) {
+	if i, ok := a.(IGetItem); ok {
+		return i.GetItem(b)
+	}
+
+	value := reflect.ValueOf(a)
+	switch value.Kind() {
+	case reflect.Map:
+		ret := value.MapIndex(reflect.ValueOf(b))
+		if ret.Kind() == reflect.Invalid {
+			return nil, fmt.Errorf("unknown key")
+		}
+		return ret.Interface(), nil
+	case reflect.Array, reflect.Slice, reflect.String:
+		if i, ok := numbers.ToInt(b); ok {
+			if value.Len() <= int(i) {
+				return nil, fmt.Errorf("index out of range")
+			}
+			return value.Index(int(i)).Interface(), nil
+		}
+		return nil, fmt.Errorf("wrong type for index in getitem")
+	default:
+		return nil, fmt.Errorf("can't get item")
+	}
+}
+
 func Bool(a any) (bool, error) {
 	if i, ok := a.(IBool); ok {
 		return i.Bool()
@@ -362,6 +396,19 @@ func Neg(a any) (any, error) {
 		return multiplyNumeric(a, -1), nil
 	}
 	return nil, fmt.Errorf("given element can't be negated")
+}
+
+func Len(a any) (int, error) {
+	if i, ok := a.(ILen); ok {
+		return i.Len()
+	}
+	value := reflect.ValueOf(a)
+	switch value.Kind() {
+	case reflect.Array, reflect.Slice, reflect.String, reflect.Map, reflect.Chan:
+		return value.Len(), nil
+	default:
+		return 0, fmt.Errorf("can't get length of elemnent")
+	}
 }
 
 func Contains(a, b any) (bool, error) {

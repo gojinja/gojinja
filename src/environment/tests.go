@@ -135,13 +135,15 @@ func testNumber(_ *Environment, value any, _ ...any) (bool, error) {
 }
 
 func testSequence(_ *Environment, value any, _ ...any) (bool, error) {
-	// TODO rewrite using operator len and getitem
 	switch reflect.TypeOf(value).Kind() {
 	case reflect.Slice, reflect.Array, reflect.Map, reflect.String:
 		return true, nil
-	default:
+	}
+	if _, err := operator.Len(value); err != nil {
 		return false, nil
 	}
+	_, ok := value.(operator.IGetItem)
+	return ok, nil
 }
 
 func testCallable(_ *Environment, value any, _ ...any) (bool, error) {

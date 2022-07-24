@@ -294,6 +294,6 @@ func (cu ChainableUndefined) GetAttr() (any, error) {
 	return cu, nil
 }
 
-func (cu ChainableUndefined) GetItem() (any, error) {
+func (cu ChainableUndefined) GetItem(any) (any, error) {
 	return cu, nil
 }
