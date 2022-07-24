@@ -62,9 +62,15 @@ func ToComplex(v any) (c complex128, ok bool) {
 
 func IsNumeric(v any) bool {
 	_, isInt := ToInt(v)
+	if isInt {
+		return true
+	}
 	_, isFloat := ToFloat(v)
+	if isFloat {
+		return true
+	}
 	_, isComplex := ToComplex(v)
-	return isInt || isFloat || isComplex
+	return isComplex
 }
 
 type IMul interface {
@@ -192,7 +198,7 @@ func Mul(a any, b any) (any, error) {
 			}
 		}
 	}
-	return nil, fmt.Errorf("given elements are not multipliable")
+	return nil, fmt.Errorf("given elements can't be multipied")
 }
 
 func Add(a any, b any) (any, error) {
@@ -204,7 +210,6 @@ func Add(a any, b any) (any, error) {
 	}
 	if IsNumeric(a) && IsNumeric(b) {
 		return addNumeric(a, b), nil
-
 	}
 	if bothString(a, b) {
 		return a.(string) + b.(string), nil
@@ -214,7 +219,7 @@ func Add(a any, b any) (any, error) {
 		return addSlices(a, b), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not additible")
+	return nil, fmt.Errorf("given elements can't be added")
 }
 
 func Sub(a any, b any) (any, error) {
@@ -228,7 +233,7 @@ func Sub(a any, b any) (any, error) {
 		return subNumeric(a, b), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not subable")
+	return nil, fmt.Errorf("given elements can't be subtracted")
 }
 
 func Div(a any, b any) (any, error) {
@@ -242,7 +247,7 @@ func Div(a any, b any) (any, error) {
 		return divNumeric(a, b)
 	}
 
-	return nil, fmt.Errorf("given elements are not divable")
+	return nil, fmt.Errorf("given elements can't be divided")
 }
 
 func Mod(a any, b any) (any, error) {
@@ -256,7 +261,7 @@ func Mod(a any, b any) (any, error) {
 		return modNumeric(a, b)
 	}
 
-	return nil, fmt.Errorf("given elements are not divable")
+	return nil, fmt.Errorf("given elements can't perform modulo")
 }
 
 func Pow(a any, b any) (any, error) {
@@ -270,7 +275,7 @@ func Pow(a any, b any) (any, error) {
 		return powNumeric(a, b), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not powable")
+	return nil, fmt.Errorf("given elements can't be raised to a power")
 }
 
 func FloorDiv(a any, b any) (any, error) {
@@ -284,7 +289,7 @@ func FloorDiv(a any, b any) (any, error) {
 		return floorDivNumeric(a, b)
 	}
 
-	return nil, fmt.Errorf("given elements are not floor divable")
+	return nil, fmt.Errorf("given elements can't be floor divided")
 }
 
 func Eq(a any, b any) (any, error) {
@@ -329,7 +334,7 @@ func Ge(a any, b any) (any, error) {
 		return a.(string) > b.(string), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not geable")
+	return nil, fmt.Errorf("given elements can't be compared")
 }
 
 func Le(a any, b any) (any, error) {
@@ -346,7 +351,7 @@ func Le(a any, b any) (any, error) {
 		return a.(string) < b.(string), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not floor leable")
+	return nil, fmt.Errorf("given elements can't be compared")
 }
 
 func Lt(a any, b any) (any, error) {
@@ -363,7 +368,7 @@ func Lt(a any, b any) (any, error) {
 		return a.(string) <= b.(string), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not floor ltable")
+	return nil, fmt.Errorf("given elements can't be compared")
 }
 
 func Gt(a any, b any) (any, error) {
@@ -380,7 +385,7 @@ func Gt(a any, b any) (any, error) {
 		return a.(string) >= b.(string), nil
 	}
 
-	return nil, fmt.Errorf("given elements are not floor gtable")
+	return nil, fmt.Errorf("given elements can't be compared")
 }
 
 func Bool(a any) (bool, error) {
@@ -405,7 +410,7 @@ func Pos(a any) (any, error) {
 	if IsNumeric(a) {
 		return a, nil
 	}
-	return nil, fmt.Errorf("given element is not posable")
+	return nil, fmt.Errorf("given element can't return positive value")
 }
 
 func Neg(a any) (any, error) {
@@ -415,7 +420,7 @@ func Neg(a any) (any, error) {
 	if IsNumeric(a) {
 		return multiplyNumeric(a, -1), nil
 	}
-	return nil, fmt.Errorf("given element is not negable")
+	return nil, fmt.Errorf("given element can't be negated")
 }
 
 func Contains(a, b any) (bool, error) {
@@ -452,7 +457,7 @@ func Contains(a, b any) (bool, error) {
 		}
 		return false, nil
 	}
-	return false, fmt.Errorf("elements are not cointainable ")
+	return false, fmt.Errorf("elements don't support `in` operator")
 }
 
 func bothString(a, b any) bool {
