@@ -873,9 +873,71 @@ func (p *parser) parseFilter(node *nodes.Expr, startInline bool) (*nodes.Expr, e
 	return node, nil
 }
 
-func (p *parser) parseTest(node nodes.Node) (nodes.Expr, error) {
-	// TODO
-	panic("not implemented")
+func (p *parser) parseTest(node nodes.Expr) (nodes.Expr, error) {
+	token := p.stream.Next()
+	negated := false
+	if p.stream.Current().Test("name:not") {
+		p.stream.Next()
+		negated = true
+	}
+	nameTok, err := p.stream.Expect(lexer.TokenName)
+	if err != nil {
+		return nil, err
+	}
+	name := fmt.Sprint(nameTok.Value)
+	for p.stream.Current().Type == lexer.TokenDot {
+		p.stream.Next()
+		nameTok, err = p.stream.Expect(lexer.TokenName)
+		if err != nil {
+			return nil, err
+		}
+		name = fmt.Sprintf("%s.%s", name, nameTok.Value)
+	}
+	n := &nodes.Test{
+		FilterTestCommon: nodes.FilterTestCommon{
+			Node: &node,
+			Name: name,
+			ExprCommon: nodes.ExprCommon{
+				Lineno: token.Lineno,
+			},
+		},
+	}
+
+	if p.stream.Current().Type == lexer.TokenLParen {
+		n.Args, n.Kwargs, n.DynArgs, n.DynArgs, err = p.parseCallArgs()
+	} else if slices.Contains([]string{
+		lexer.TokenName,
+		lexer.TokenString,
+		lexer.TokenInteger,
+		lexer.TokenFloat,
+		lexer.TokenLParen,
+		lexer.TokenLBracket,
+		lexer.TokenLBrace,
+	}, p.stream.Current().Type) && !p.stream.Current().TestAny("name:else", "name:or", "name:and") {
+		if p.stream.Current().Test("name:is") {
+			return nil, p.fail("You cannot chain multiple test with is", nil)
+		}
+		argNode, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		argNode, err = p.parsePostfix(argNode)
+		if err != nil {
+			return nil, err
+		}
+		n.Args = append(n.Args, argNode)
+	}
+
+	if negated {
+		return &nodes.UnaryExpr{
+			Node: n,
+			Op:   "not",
+			ExprCommon: nodes.ExprCommon{
+				Lineno: token.Lineno,
+			},
+		}, nil
+	}
+	return n, nil
 }
 
 func (p *parser) parseList() (nodes.Expr, error) {

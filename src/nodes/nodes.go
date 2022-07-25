@@ -459,7 +459,11 @@ type Filter struct {
 	FilterTestCommon
 }
 
-func (f *Filter) SetCtx(ctx string) {
+type Test struct {
+	FilterTestCommon
+}
+
+func (f *FilterTestCommon) SetCtx(ctx string) {
 	if f.Node != nil {
 		(*f.Node).SetCtx(ctx)
 	}
@@ -582,6 +586,7 @@ var _ Expr = &Compare{}
 var _ Expr = &Concat{}
 var _ Expr = &Call{}
 var _ Expr = &Filter{}
+var _ Expr = &Test{}
 var _ Expr = &Name{}
 var _ Expr = &NSRef{}
 var _ Expr = &Getattr{}
