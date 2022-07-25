@@ -950,7 +950,7 @@ func (p *parser) parseList() (nodes.Expr, error) {
 			Lineno: token.Lineno,
 		},
 	}
-	for p.stream.Current().Type != lexer.TokenRBrace {
+	for p.stream.Current().Type != lexer.TokenRBracket {
 		if len(n.Items) != 0 {
 			if _, err := p.stream.Expect(lexer.TokenComma); err != nil {
 				return nil, err
@@ -973,8 +973,46 @@ func (p *parser) parseList() (nodes.Expr, error) {
 }
 
 func (p *parser) parseDict() (nodes.Expr, error) {
-	// TODO
-	panic("not implemented")
+	token, err := p.stream.Expect(lexer.TokenLBrace)
+	if err != nil {
+		return nil, err
+	}
+	n := &nodes.Dict{
+		LiteralCommon: nodes.LiteralCommon{
+			Lineno: token.Lineno,
+		},
+	}
+	for p.stream.Current().Type != lexer.TokenRBrace {
+		if len(n.Items) != 0 {
+			if _, err := p.stream.Expect(lexer.TokenComma); err != nil {
+				return nil, err
+			}
+		}
+		if p.stream.Current().Type == lexer.TokenRBrace {
+			break
+		}
+		key, err := p.parseExpression(true)
+		if err != nil {
+			return nil, err
+		}
+		if _, err := p.stream.Expect(lexer.TokenColon); err != nil {
+			return nil, err
+		}
+		value, err := p.parseExpression(true)
+		if err != nil {
+			return nil, err
+		}
+		n.Items = append(n.Items, nodes.Pair{
+			Key:          key,
+			Value:        value,
+			HelperCommon: nodes.HelperCommon{Lineno: key.GetLineno()},
+		})
+	}
+
+	if _, err := p.stream.Expect(lexer.TokenRBrace); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (p *parser) isTupleEnd(extraEndRules []string) bool {
