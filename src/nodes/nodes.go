@@ -162,6 +162,39 @@ func (LiteralCommon) CanAssign() bool {
 	return false
 }
 
+type List struct {
+	Items []Expr
+	LiteralCommon
+}
+
+func (l *List) SetCtx(ctx string) {
+	for _, i := range l.Items {
+		i.SetCtx(ctx)
+	}
+}
+
+type Pair struct {
+	Key   Expr
+	Value Expr
+	HelperCommon
+}
+
+func (p *Pair) SetCtx(ctx string) {
+	p.Key.SetCtx(ctx)
+	p.Value.SetCtx(ctx)
+}
+
+type Dict struct {
+	Items []Pair
+	LiteralCommon
+}
+
+func (d *Dict) SetCtx(ctx string) {
+	for _, i := range d.Items {
+		i.SetCtx(ctx)
+	}
+}
+
 // TemplateData represents a constant template string.
 type TemplateData struct {
 	Data string
@@ -459,7 +492,11 @@ type Filter struct {
 	FilterTestCommon
 }
 
-func (f *Filter) SetCtx(ctx string) {
+type Test struct {
+	FilterTestCommon
+}
+
+func (f *FilterTestCommon) SetCtx(ctx string) {
 	if f.Node != nil {
 		(*f.Node).SetCtx(ctx)
 	}
@@ -582,6 +619,7 @@ var _ Expr = &Compare{}
 var _ Expr = &Concat{}
 var _ Expr = &Call{}
 var _ Expr = &Filter{}
+var _ Expr = &Test{}
 var _ Expr = &Name{}
 var _ Expr = &NSRef{}
 var _ Expr = &Getattr{}
@@ -594,6 +632,9 @@ var _ ExprWithName = &NSRef{}
 var _ Literal = &Const{}
 var _ Literal = &Tuple{}
 var _ Literal = &TemplateData{}
+var _ Literal = &List{}
+var _ Literal = &Dict{}
 
 var _ Helper = &Keyword{}
 var _ Helper = &Operand{}
+var _ Helper = &Pair{}
