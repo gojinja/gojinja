@@ -162,6 +162,39 @@ func (LiteralCommon) CanAssign() bool {
 	return false
 }
 
+type List struct {
+	Items []Expr
+	LiteralCommon
+}
+
+func (l *List) SetCtx(ctx string) {
+	for _, i := range l.Items {
+		i.SetCtx(ctx)
+	}
+}
+
+type Pair struct {
+	Key   Expr
+	Value Expr
+	HelperCommon
+}
+
+func (p *Pair) SetCtx(ctx string) {
+	p.Key.SetCtx(ctx)
+	p.Value.SetCtx(ctx)
+}
+
+type Dict struct {
+	Items []Pair
+	LiteralCommon
+}
+
+func (d *Dict) SetCtx(ctx string) {
+	for _, i := range d.Items {
+		i.SetCtx(ctx)
+	}
+}
+
 // TemplateData represents a constant template string.
 type TemplateData struct {
 	Data string
@@ -599,6 +632,9 @@ var _ ExprWithName = &NSRef{}
 var _ Literal = &Const{}
 var _ Literal = &Tuple{}
 var _ Literal = &TemplateData{}
+var _ Literal = &List{}
+var _ Literal = &Dict{}
 
 var _ Helper = &Keyword{}
 var _ Helper = &Operand{}
+var _ Helper = &Pair{}

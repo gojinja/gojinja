@@ -941,8 +941,35 @@ func (p *parser) parseTest(node nodes.Expr) (nodes.Expr, error) {
 }
 
 func (p *parser) parseList() (nodes.Expr, error) {
-	// TODO
-	panic("not implemented")
+	token, err := p.stream.Expect(lexer.TokenLBracket)
+	if err != nil {
+		return nil, err
+	}
+	n := &nodes.List{
+		LiteralCommon: nodes.LiteralCommon{
+			Lineno: token.Lineno,
+		},
+	}
+	for p.stream.Current().Type != lexer.TokenRBrace {
+		if len(n.Items) != 0 {
+			if _, err := p.stream.Expect(lexer.TokenComma); err != nil {
+				return nil, err
+			}
+		}
+		if p.stream.Current().Type == lexer.TokenRBracket {
+			break
+		}
+		it, err := p.parseExpression(true)
+		if err != nil {
+			return nil, err
+		}
+		n.Items = append(n.Items, it)
+	}
+
+	if _, err := p.stream.Expect(lexer.TokenRBracket); err != nil {
+		return nil, err
+	}
+	return n, nil
 }
 
 func (p *parser) parseDict() (nodes.Expr, error) {
