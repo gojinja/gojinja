@@ -1073,8 +1073,44 @@ func (p *parser) parseStatements(endTokens []string, dropNeedle bool) ([]nodes.N
 }
 
 func (p *parser) parseBlock() (nodes.Node, error) {
-	// TODO
-	panic("not implemented")
+	node := &nodes.Block{StmtCommon: nodes.StmtCommon{Lineno: p.stream.Next().Lineno}}
+	tokName, err := p.stream.Expect(lexer.TokenName)
+	if err != nil {
+		return nil, err
+	}
+	node.Name = fmt.Sprint(tokName.Value)
+	node.Scoped = p.stream.SkipIf("name:scoped")
+	node.Required = p.stream.SkipIf("name:required")
+
+	if p.stream.Current().Type == lexer.TokenSub {
+		// Common problem people encounter when switching from django to jinja.
+		// We do not support hyphens in block names, so let's raise a nicer error message in that case.
+		return nil, p.fail("Block names in Jinja have to be valid Python identifiers and may not contain hyphens, use an underscore instead.", nil)
+	}
+	node.Body, err = p.parseStatements([]string{"name:endblock"}, true)
+	if err != nil {
+		return nil, err
+	}
+	// enforce that required blocks only contain whitespace or comments
+	// by asserting that the body, if not empty, is just TemplateData nodes
+	// with whitespace data
+	if node.Required {
+		for _, body := range node.Body {
+			withNode, ok := body.(nodes.StmtWithNodes)
+			if !ok {
+				continue
+			}
+			for _, child := range withNode.GetNodes() {
+				tD, ok := child.(*nodes.TemplateData)
+				if !ok || strings.TrimSpace(tD.Data) != "" {
+					return nil, p.fail("Required blocks can only contain comments or whitespace", nil)
+				}
+			}
+		}
+	}
+
+	p.stream.SkipIf("name:" + node.Name)
+	return node, nil
 }
 
 func (p *parser) parseExtends() (nodes.Node, error) {

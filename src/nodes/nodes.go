@@ -37,6 +37,11 @@ func (s *StmtCommon) GetLineno() int {
 	return s.Lineno
 }
 
+type StmtWithNodes interface {
+	GetNodes() []Expr
+	Stmt
+}
+
 func (ExprCommon) CanAssign() bool {
 	return false
 }
@@ -61,9 +66,27 @@ type Expr interface {
 	Node
 }
 
+type Block struct {
+	Name     string
+	Body     []Node
+	Scoped   bool
+	Required bool
+	StmtCommon
+}
+
+func (b *Block) SetCtx(ctx string) {
+	for _, n := range b.Body {
+		n.SetCtx(ctx)
+	}
+}
+
 type Output struct {
 	Nodes []Expr
 	StmtCommon
+}
+
+func (o *Output) GetNodes() []Expr {
+	return o.Nodes
 }
 
 func (o *Output) SetCtx(ctx string) {
@@ -571,6 +594,9 @@ var _ Stmt = &Assign{}
 var _ Stmt = &AssignBlock{}
 var _ Stmt = &With{}
 var _ Stmt = &For{}
+var _ Stmt = &Block{}
+
+var _ StmtWithNodes = &Output{}
 
 var _ SetWithContexter = &Include{}
 var _ SetWithContexter = &Import{}
