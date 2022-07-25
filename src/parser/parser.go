@@ -204,7 +204,7 @@ func (p *parser) parseTuple(simplified bool, withCondexpr bool, extraEndRules []
 		// nothing) in the spot of an expression would be an empty
 		// tuple.
 		if !explicitParentheses {
-			return nil, p.fail(fmt.Sprintf("Expected an expression, got %s", p.stream.Current(), nil), nil, nil)
+			return nil, p.fail(fmt.Sprintf("Expected an expression, got %s", p.stream.Current()), nil, nil)
 		}
 	}
 
@@ -1206,7 +1206,7 @@ func (p *parser) parseFrom() (nodes.Node, error) {
 	}
 
 	parseContext := func() bool {
-		if slices.Contains([]any{"with", "without"}, p.stream.Current().Value) &&
+		if slices.Contains([]string{"with", "without"}, fmt.Sprint(p.stream.Current().Value)) &&
 			p.stream.Look().Test("name:context") {
 			node.WithContext = p.stream.Next().Value == "with"
 			p.stream.Skip(1)
