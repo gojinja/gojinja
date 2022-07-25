@@ -150,7 +150,7 @@ func (p *parser) subparse(endTokens []string) ([]nodes.Node, error) {
 				return nil, err
 			}
 		default:
-			return nil, p.fail("internal parsing error", nil)
+			return nil, p.fail("internal parsing error", nil, nil)
 		}
 	}
 
@@ -204,7 +204,7 @@ func (p *parser) parseTuple(simplified bool, withCondexpr bool, extraEndRules []
 		// nothing) in the spot of an expression would be an empty
 		// tuple.
 		if !explicitParentheses {
-			return nil, p.fail(fmt.Sprintf("Expected an expression, got %s", p.stream.Current()), nil)
+			return nil, p.fail(fmt.Sprintf("Expected an expression, got %s", p.stream.Current()), nil, nil)
 		}
 	}
 
@@ -273,7 +273,7 @@ func (p *parser) parsePrimary() (nodes.Expr, error) {
 	case lexer.TokenLBrace:
 		return p.parseDict()
 	default:
-		return nil, p.fail(fmt.Sprintf("unexpected %q", lexer.DescribeToken(token)), &token.Lineno)
+		return nil, p.fail(fmt.Sprintf("unexpected %q", lexer.DescribeToken(token)), &token.Lineno, nil)
 	}
 }
 
@@ -608,7 +608,7 @@ func (p *parser) parseSubscript(node nodes.Expr) (nodes.Expr, error) {
 				ExprCommon: nodes.ExprCommon{Lineno: attrToken.Lineno},
 			}, nil
 		} else if attrToken.Type != lexer.TokenInteger {
-			return nil, p.fail(fmt.Sprintf("expected name or number, got %s", attrToken.Type), &attrToken.Lineno)
+			return nil, p.fail(fmt.Sprintf("expected name or number, got %s", attrToken.Type), &attrToken.Lineno, nil)
 		}
 		arg = &nodes.Const{
 			Value:         attrToken.Value,
@@ -656,7 +656,7 @@ func (p *parser) parseSubscript(node nodes.Expr) (nodes.Expr, error) {
 		}, nil
 	}
 
-	return nil, p.fail("expected subscript expression", &token.Lineno)
+	return nil, p.fail("expected subscript expression", &token.Lineno, nil)
 }
 
 func (p *parser) parseSubscribed() (nodes.Expr, error) {
@@ -750,7 +750,7 @@ func (p *parser) parseCallArgs() (args []nodes.Expr, kwargs []nodes.Keyword, dyn
 
 	ensure := func(expr bool) error {
 		if !expr {
-			return p.fail("invalid syntax for function call expression", &token.Lineno)
+			return p.fail("invalid syntax for function call expression", &token.Lineno, nil)
 		}
 		return nil
 	}
@@ -1031,7 +1031,7 @@ func (p *parser) isTupleEnd(extraEndRules []string) bool {
 func (p *parser) parseStatement() ([]nodes.Node, error) {
 	token := p.stream.Current()
 	if token.Type != lexer.TokenName {
-		return nil, p.fail("tag name expected", &token.Lineno)
+		return nil, p.fail("tag name expected", &token.Lineno, nil)
 	}
 	p.tagStack.Push(token.Value.(string))
 	popTag := true
@@ -1203,8 +1203,44 @@ func (p *parser) parseStatements(endTokens []string, dropNeedle bool) ([]nodes.N
 }
 
 func (p *parser) parseBlock() (nodes.Node, error) {
-	// TODO
-	panic("not implemented")
+	node := &nodes.Block{StmtCommon: nodes.StmtCommon{Lineno: p.stream.Next().Lineno}}
+	tokName, err := p.stream.Expect(lexer.TokenName)
+	if err != nil {
+		return nil, err
+	}
+	node.Name = fmt.Sprint(tokName.Value)
+	node.Scoped = p.stream.SkipIf("name:scoped")
+	node.Required = p.stream.SkipIf("name:required")
+
+	if p.stream.Current().Type == lexer.TokenSub {
+		// Common problem people encounter when switching from django to jinja.
+		// We do not support hyphens in block names, so let's raise a nicer error message in that case.
+		return nil, p.fail("Block names in Jinja have to be valid Python identifiers and may not contain hyphens, use an underscore instead.", nil, nil)
+	}
+	node.Body, err = p.parseStatements([]string{"name:endblock"}, true)
+	if err != nil {
+		return nil, err
+	}
+	// enforce that required blocks only contain whitespace or comments
+	// by asserting that the body, if not empty, is just TemplateData nodes
+	// with whitespace data
+	if node.Required {
+		for _, body := range node.Body {
+			withNode, ok := body.(nodes.StmtWithNodes)
+			if !ok {
+				continue
+			}
+			for _, child := range withNode.GetNodes() {
+				tD, ok := child.(*nodes.TemplateData)
+				if !ok || strings.TrimSpace(tD.Data) != "" {
+					return nil, p.fail("Required blocks can only contain comments or whitespace", nil, nil)
+				}
+			}
+		}
+	}
+
+	p.stream.SkipIf("name:" + node.Name)
+	return node, nil
 }
 
 func (p *parser) parseExtends() (nodes.Node, error) {
@@ -1285,8 +1321,68 @@ func (p *parser) parseInclude() (nodes.Node, error) {
 }
 
 func (p *parser) parseFrom() (nodes.Node, error) {
-	// TODO
-	panic("not implemented")
+	node := &nodes.FromImport{
+		StmtCommon: nodes.StmtCommon{
+			Lineno: p.stream.Next().Lineno,
+		},
+	}
+	var err error
+	node.Template, err = p.parseExpression(true)
+	if err != nil {
+		return nil, err
+	}
+	if _, err = p.stream.Expect("name:import"); err != nil {
+		return nil, err
+	}
+
+	parseContext := func() bool {
+		if slices.Contains([]string{"with", "without"}, fmt.Sprint(p.stream.Current().Value)) &&
+			p.stream.Look().Test("name:context") {
+			node.WithContext = p.stream.Next().Value == "with"
+			p.stream.Skip(1)
+			return true
+		}
+		return false
+	}
+
+	for {
+		if len(node.Names) != 0 {
+			if _, err = p.stream.Expect(lexer.TokenComma); err != nil {
+				return nil, err
+			}
+		}
+		if p.stream.Current().Type != lexer.TokenName {
+			if _, err = p.stream.Expect(lexer.TokenName); err != nil {
+				return nil, err
+			}
+			continue
+		}
+		if parseContext() {
+			break
+		}
+		target, err := p.parseAssignTargetName()
+		if err != nil {
+			return nil, err
+		}
+		if strings.HasPrefix(target.Name, "_") {
+			lineno := target.GetLineno()
+			return nil, p.fail("names starting with an underline can not be imported", &lineno, errors.TemplateAssertionError)
+		}
+		if p.stream.SkipIf("name:as") {
+			alias, err := p.parseAssignTargetName()
+			if err != nil {
+				return nil, err
+			}
+			node.Names = append(node.Names, []string{target.Name, alias.Name})
+		} else {
+			node.Names = append(node.Names, []string{target.Name})
+		}
+		if parseContext() || p.stream.Current().Type != lexer.TokenComma {
+			break
+		}
+	}
+
+	return node, nil
 }
 
 func (p *parser) parseImport() (nodes.Node, error) {
@@ -1423,7 +1519,7 @@ func (p *parser) parseCallBlock() (nodes.Node, error) {
 	if call, ok := callNode.(*nodes.Call); ok {
 		node.Call = *call
 	} else {
-		return nil, p.fail("expected call", &node.Lineno)
+		return nil, p.fail("expected call", &node.Lineno, nil)
 	}
 	node.Body, err = p.parseStatements([]string{"name:endcall"}, true)
 	if err != nil {
@@ -1472,7 +1568,7 @@ func (p *parser) parseAssignTargetName() (target *nodes.Name, err error) {
 	}
 	if !target.CanAssign() {
 		lineno := target.GetLineno()
-		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno)
+		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno, nil)
 	}
 
 	return
@@ -1484,7 +1580,7 @@ func (p *parser) parseAssignTargetTuple(extraEndRules []string) (target nodes.Ex
 
 	if !target.CanAssign() {
 		lineno := target.GetLineno()
-		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno)
+		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno, nil)
 	}
 
 	return
@@ -1501,7 +1597,7 @@ func (p *parser) parseAssignTargetNameNamespace() (target nodes.ExprWithName, er
 	}
 	if !target.CanAssign() {
 		lineno := target.GetLineno()
-		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno)
+		return nil, p.fail(fmt.Sprintf("can't assign to %s", reflect.TypeOf(target).Name()), &lineno, nil)
 	}
 
 	return
@@ -1551,7 +1647,7 @@ func (p *parser) parseSignature(n *nodes.MacroCall) error {
 			}
 			n.Defaults = append(n.Defaults, expr)
 		} else if len(n.Defaults) != 0 {
-			return p.fail("non-default argument follows default argument", nil)
+			return p.fail("non-default argument follows default argument", nil, nil)
 		}
 		n.Args = append(n.Args, *arg)
 	}
@@ -1559,14 +1655,17 @@ func (p *parser) parseSignature(n *nodes.MacroCall) error {
 	return err
 }
 
-func (p *parser) fail(msg string, lineno *int) error {
+func (p *parser) fail(msg string, lineno *int, exc func(msg string, lineno int, name *string, filename *string) error) error {
 	var lineNumber int
 	if lineno == nil {
 		lineNumber = p.stream.Current().Lineno
 	} else {
 		lineNumber = *lineno
 	}
-	return errors.TemplateSyntaxError(msg, lineNumber, p.name, p.filename)
+	if exc == nil {
+		exc = errors.TemplateSyntaxError
+	}
+	return exc(msg, lineNumber, p.name, p.filename)
 }
 
 func (p *parser) failUnknownTag(name string, lineno *int) error {
@@ -1620,5 +1719,5 @@ func (p *parser) failUtEof(name *string, endTokenStack *stack.Stack[[]string], l
 		messages = append(messages, fmt.Sprintf("The innermost block that needs to be closed is %q.", *lastTag))
 	}
 
-	return p.fail(strings.Join(messages, " "), lineno)
+	return p.fail(strings.Join(messages, " "), lineno, nil)
 }

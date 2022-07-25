@@ -1,6 +1,8 @@
 package nodes
 
-import "golang.org/x/exp/slices"
+import (
+	"golang.org/x/exp/slices"
+)
 
 type Node interface {
 	GetLineno() int
@@ -37,6 +39,11 @@ func (s *StmtCommon) GetLineno() int {
 	return s.Lineno
 }
 
+type StmtWithNodes interface {
+	GetNodes() []Expr
+	Stmt
+}
+
 func (ExprCommon) CanAssign() bool {
 	return false
 }
@@ -61,9 +68,27 @@ type Expr interface {
 	Node
 }
 
+type Block struct {
+	Name     string
+	Body     []Node
+	Scoped   bool
+	Required bool
+	StmtCommon
+}
+
+func (b *Block) SetCtx(ctx string) {
+	for _, n := range b.Body {
+		n.SetCtx(ctx)
+	}
+}
+
 type Output struct {
 	Nodes []Expr
 	StmtCommon
+}
+
+func (o *Output) GetNodes() []Expr {
+	return o.Nodes
 }
 
 func (o *Output) SetCtx(ctx string) {
@@ -463,6 +488,21 @@ func (w *With) SetCtx(ctx string) {
 	}
 }
 
+type FromImport struct {
+	Template    Expr
+	WithContext bool
+	Names       [][]string // name or name with alias
+	StmtCommon
+}
+
+func (f *FromImport) SetWithContext(b bool) {
+	f.WithContext = b
+}
+
+func (f *FromImport) SetCtx(ctx string) {
+	f.Template.SetCtx(ctx)
+}
+
 type Import struct {
 	Template    Expr
 	WithContext bool
@@ -608,9 +648,14 @@ var _ Stmt = &Assign{}
 var _ Stmt = &AssignBlock{}
 var _ Stmt = &With{}
 var _ Stmt = &For{}
+var _ Stmt = &Block{}
+var _ Stmt = &FromImport{}
+
+var _ StmtWithNodes = &Output{}
 
 var _ SetWithContexter = &Include{}
 var _ SetWithContexter = &Import{}
+var _ SetWithContexter = &FromImport{}
 
 var _ Expr = &BinExpr{}
 var _ Expr = &UnaryExpr{}

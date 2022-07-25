@@ -12,6 +12,10 @@ func TemplateSyntaxError(msg string, lineno int, name *string, filename *string)
 	return fmt.Errorf("TEMPLATE SYNTAX ERROR %s %d", msg, lineno)
 }
 
+func TemplateAssertionError(msg string, lineno int, name *string, filename *string) error {
+	return TemplateSyntaxError(msg, lineno, name, filename)
+}
+
 func TemplateError(msg string) error {
 	return fmt.Errorf("TEMPLATE ERROR: %s", msg)
 }
