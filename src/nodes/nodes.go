@@ -1,6 +1,8 @@
 package nodes
 
-import "golang.org/x/exp/slices"
+import (
+	"golang.org/x/exp/slices"
+)
 
 type Node interface {
 	GetLineno() int
@@ -453,6 +455,21 @@ func (w *With) SetCtx(ctx string) {
 	}
 }
 
+type FromImport struct {
+	Template    Expr
+	WithContext bool
+	Names       [][]string // name or name with alias
+	StmtCommon
+}
+
+func (f *FromImport) SetWithContext(b bool) {
+	f.WithContext = b
+}
+
+func (f *FromImport) SetCtx(ctx string) {
+	f.Template.SetCtx(ctx)
+}
+
 type Import struct {
 	Template    Expr
 	WithContext bool
@@ -595,11 +612,13 @@ var _ Stmt = &AssignBlock{}
 var _ Stmt = &With{}
 var _ Stmt = &For{}
 var _ Stmt = &Block{}
+var _ Stmt = &FromImport{}
 
 var _ StmtWithNodes = &Output{}
 
 var _ SetWithContexter = &Include{}
 var _ SetWithContexter = &Import{}
+var _ SetWithContexter = &FromImport{}
 
 var _ Expr = &BinExpr{}
 var _ Expr = &UnaryExpr{}
