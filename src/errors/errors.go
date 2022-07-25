@@ -13,7 +13,7 @@ func TemplateSyntaxError(msg string, lineno int, name *string, filename *string)
 }
 
 func TemplateAssertionError(msg string, lineno int, name *string, filename *string) error {
-	return TemplateAssertionError(msg, lineno, name, filename)
+	return TemplateSyntaxError(msg, lineno, name, filename)
 }
 
 func TemplateError(msg string) error {
