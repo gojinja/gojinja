@@ -918,7 +918,7 @@ func (p *parser) parseTest(node nodes.Expr) (nodes.Expr, error) {
 		lexer.TokenLBrace,
 	}, p.stream.Current().Type) && !p.stream.Current().TestAny("name:else", "name:or", "name:and") {
 		if p.stream.Current().Test("name:is") {
-			return nil, p.fail("You cannot chain multiple test with is", nil)
+			return nil, p.fail("You cannot chain multiple test with is", nil, nil)
 		}
 		argNode, err := p.parsePrimary()
 		if err != nil {
