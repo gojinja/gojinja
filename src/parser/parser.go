@@ -905,6 +905,9 @@ func (p *parser) parseTest(node nodes.Expr) (nodes.Expr, error) {
 
 	if p.stream.Current().Type == lexer.TokenLParen {
 		n.Args, n.Kwargs, n.DynArgs, n.DynArgs, err = p.parseCallArgs()
+		if err != nil {
+			return nil, err
+		}
 	} else if slices.Contains([]string{
 		lexer.TokenName,
 		lexer.TokenString,
