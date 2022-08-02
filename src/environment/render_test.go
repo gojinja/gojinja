@@ -44,13 +44,13 @@ var cases = []testRender{
 func TestRenderE2E(t *testing.T) {
 	env, err := New(DefaultEnvOpts())
 	if err != nil {
-		t.Errorf("Failed to create environment %v", err)
+		t.Fatalf("Failed to create environment %v", err)
 	}
 
 	for _, c := range cases {
 		tmpl, err := env.TemplateClass.FromString(env, c.input, nil, c.globals, func() bool { return true })
 		if err != nil {
-			t.Errorf("Failed to create template %v", err)
+			t.Fatalf("Failed to create template %v", err)
 		}
 
 		out, err := tmpl.Render(c.variables)
@@ -58,14 +58,14 @@ func TestRenderE2E(t *testing.T) {
 			if c.shouldErr {
 				continue
 			}
-			t.Errorf("Failed to render template %v", err)
+			t.Fatalf("Failed to render template %v", err)
 		}
 		if err == nil && c.shouldErr {
-			t.Error("Expected error during render")
+			t.Fatalf("Expected error during render")
 		}
 
 		if out != c.res {
-			t.Errorf("Expected %q got %q", c.res, out)
+			t.Fatalf("Expected %q got %q (template %q)", c.res, out, c.input)
 		}
 	}
 }

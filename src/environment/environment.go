@@ -31,14 +31,14 @@ type Environment struct {
 	LinkedTo      *Environment
 	Shared        bool
 	Concat        func([]string) string
-	ContextClass  runtime.ContextClass
+	ContextClass  ContextClass
 	TemplateClass Class
 	*lexer.EnvLexerInformation
 	Optimized  bool
 	Extensions ExtensionsMap
 	Undefined  UndefinedConstructor
 	Finalize   func(...any) any
-	AutoEscape func(name string) bool
+	AutoEscape func(name *string) bool
 	Loader     *Loader
 	Cache      Cache
 	AutoReload bool
@@ -72,7 +72,7 @@ func New(opts *EnvOpts) (*Environment, error) {
 		LinkedTo:            nil,
 		Shared:              false,
 		Concat:              func(strs []string) string { return strings.Join(strs, "") },
-		ContextClass:        runtime.ContextClass{},
+		ContextClass:        ContextClass{},
 		TemplateClass:       Class{},
 		EnvLexerInformation: opts.EnvLexerInformation,
 		Optimized:           opts.Optimized,
@@ -102,11 +102,11 @@ func New(opts *EnvOpts) (*Environment, error) {
 	return env, nil
 }
 
-func convertAutoEscape(ae any) (func(name string) bool, error) {
+func convertAutoEscape(ae any) (func(name *string) bool, error) {
 	switch v := ae.(type) {
 	case bool:
-		return func(string) bool { return v }, nil
-	case func(string) bool:
+		return func(*string) bool { return v }, nil
+	case func(*string) bool:
 		return v, nil
 	default:
 		return nil, fmt.Errorf("unexpected type of AutoEscape")
