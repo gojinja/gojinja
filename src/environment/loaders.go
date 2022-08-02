@@ -38,7 +38,7 @@ func (l *Loader) Load(env *Environment, name string, globals map[string]any) (IT
 	if err != nil {
 		return nil, err
 	}
-	return env.TemplateClass.FromSource(env, source, filename, globals, upToDate)
+	return env.TemplateClass.FromString(env, source, filename, globals, upToDate)
 }
 
 type fsLoader struct {
