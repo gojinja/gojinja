@@ -44,7 +44,7 @@ type StmtWithNodes interface {
 	Stmt
 }
 
-func (ExprCommon) CanAssign() bool {
+func (*ExprCommon) CanAssign() bool {
 	return false
 }
 
@@ -179,11 +179,11 @@ func (f *FilterBlock) SetCtx(ctx string) {
 type Literal Expr
 type LiteralCommon ExprCommon
 
-func (l LiteralCommon) GetLineno() int {
+func (l *LiteralCommon) GetLineno() int {
 	return l.Lineno
 }
 
-func (LiteralCommon) CanAssign() bool {
+func (*LiteralCommon) CanAssign() bool {
 	return false
 }
 
@@ -258,11 +258,11 @@ func (n *Name) SetCtx(ctx string) {
 	n.Ctx = ctx
 }
 
-func (n Name) CanAssign() bool {
+func (n *Name) CanAssign() bool {
 	return !slices.Contains([]string{"true", "false", "none", "True", "False", "None"}, n.Name)
 }
 
-func (n Name) GetName() string {
+func (n *Name) GetName() string {
 	return n.Name
 }
 
@@ -272,13 +272,13 @@ type NSRef struct {
 	ExprCommon
 }
 
-func (n NSRef) SetCtx(string) {}
+func (n *NSRef) SetCtx(string) {}
 
-func (n NSRef) CanAssign() bool {
+func (n *NSRef) CanAssign() bool {
 	return true
 }
 
-func (n NSRef) GetName() string {
+func (n *NSRef) GetName() string {
 	return n.Name
 }
 
@@ -300,7 +300,7 @@ func (c *CondExpr) SetCtx(ctx string) {
 type Helper Node
 type HelperCommon NodeCommon
 
-func (h HelperCommon) GetLineno() int {
+func (h *HelperCommon) GetLineno() int {
 	return h.Lineno
 }
 
