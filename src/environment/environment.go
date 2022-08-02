@@ -6,6 +6,8 @@ import (
 	"github.com/gojinja/gojinja/src/extensions"
 	"github.com/gojinja/gojinja/src/filters"
 	"github.com/gojinja/gojinja/src/lexer"
+	"github.com/gojinja/gojinja/src/nodes"
+	"github.com/gojinja/gojinja/src/parser"
 	"github.com/gojinja/gojinja/src/runtime"
 	"github.com/gojinja/gojinja/src/utils/mapUtils"
 	lru "github.com/hashicorp/golang-lru"
@@ -226,4 +228,14 @@ func (env *Environment) loadTemplate(name string, globals map[string]any) (ITemp
 
 func (env *Environment) MakeGlobals(globals map[string]any) map[string]any {
 	return mapUtils.Chain(globals, env.Globals)
+}
+
+func (env *Environment) parse(source string, filename *string) (*nodes.Template, error) {
+	// TODO stream returned from lexer should be filtered through extensions streamFilters
+	stream, err := lexer.GetLexer(env.EnvLexerInformation).Tokenize(source, nil, filename, nil) // TODO fill name and state?
+	if err != nil {
+		return nil, err
+	}
+	p := parser.NewParser(stream, nil, nil, filename, nil) // TODO pass extensions slice; TODO fill name and state?
+	return p.Parse()
 }
