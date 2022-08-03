@@ -33,6 +33,11 @@ func FromSlice[T any](slice []T) Iterator[T] {
 	return &sliceIterator[T]{slice: slice}
 }
 
+// Once creates a new iterator which returns the single item passed as an argument.
+func Once[T any](item T) Iterator[T] {
+	return &sliceIterator[T]{slice: []T{item}}
+}
+
 // ToSlice collects the items from the specified iterator into a slice.
 func ToSlice[T any](from Iterator[T]) []T {
 	var slice []T
@@ -40,4 +45,21 @@ func ToSlice[T any](from Iterator[T]) []T {
 		slice = append(slice, from.Next())
 	}
 	return slice
+}
+
+func Map[T, F any](it Iterator[T], f func(T) F) Iterator[F] {
+	return &mapIterator[T, F]{it: it, f: f}
+}
+
+type mapIterator[T, F any] struct {
+	it Iterator[T]
+	f  func(T) F
+}
+
+func (iter *mapIterator[T, F]) HasNext() bool {
+	return iter.it.HasNext()
+}
+
+func (iter *mapIterator[T, F]) Next() F {
+	return iter.f(iter.it.Next())
 }

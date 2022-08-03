@@ -9,12 +9,12 @@ import (
 	"github.com/gojinja/gojinja/src/nodes"
 	"github.com/gojinja/gojinja/src/parser"
 	"github.com/gojinja/gojinja/src/runtime"
+	"github.com/gojinja/gojinja/src/utils"
 	"github.com/gojinja/gojinja/src/utils/mapUtils"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"log"
-	"strings"
 )
 
 type ExtensionsMap map[string]extensions.IExtension
@@ -26,13 +26,13 @@ type ExtensionsMap map[string]extensions.IExtension
 // Modifications on environments after the first template was loaded
 // will lead to surprising effects and undefined behavior.
 type Environment struct {
-	Sandboxed     bool
-	Overlayed     bool
-	LinkedTo      *Environment
-	Shared        bool
-	Concat        func([]string) string
-	ContextClass  ContextClass
-	TemplateClass Class
+	Sandboxed    bool
+	Overlayed    bool
+	LinkedTo     *Environment
+	Shared       bool
+	Concat       func([]any) any
+	ContextClass ContextClass
+	IsNative     bool
 	*lexer.EnvLexerInformation
 	Optimized  bool
 	Extensions ExtensionsMap
@@ -65,26 +65,32 @@ func (m mapCache) Get(key interface{}) (value interface{}, ok bool) {
 }
 
 func New(opts *EnvOpts) (*Environment, error) {
-	var err error
+	concat := utils.Concat
+	if opts.IsNative {
+		concat = utils.NativeConcat
+	}
+
 	env := &Environment{
 		Sandboxed:           false,
 		Overlayed:           false,
 		LinkedTo:            nil,
 		Shared:              false,
-		Concat:              func(strs []string) string { return strings.Join(strs, "") },
+		Concat:              concat,
 		ContextClass:        ContextClass{},
-		TemplateClass:       Class{},
 		EnvLexerInformation: opts.EnvLexerInformation,
 		Optimized:           opts.Optimized,
 		Undefined:           opts.Undefined,
 		Finalize:            opts.Finalize,
 		Loader:              opts.Loader,
 		AutoReload:          opts.AutoReload,
+		IsNative:            opts.IsNative,
 		Filters:             maps.Clone(filters.Default),
 		Tests:               maps.Clone(Default),
 		Globals:             maps.Clone(defaults.DefaultNamespace),
 		Policies:            maps.Clone(defaults.DefaultPolicies),
 	}
+
+	var err error
 	env.AutoEscape, err = convertAutoEscape(opts.AutoEscape)
 	if err != nil {
 		return nil, err
@@ -151,6 +157,7 @@ type EnvOpts struct {
 	Loader     *Loader
 	CacheSize  int
 	AutoReload bool
+	IsNative   bool
 }
 
 type UndefinedConstructor func(hint *string, obj any, name *string, exc func(msg string) error, logger *log.Logger) runtime.IUndefined
