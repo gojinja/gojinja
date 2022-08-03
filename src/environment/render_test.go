@@ -48,7 +48,7 @@ func TestRenderE2E(t *testing.T) {
 	}
 
 	for _, c := range cases {
-		tmpl, err := env.TemplateClass.FromString(env, c.input, nil, c.globals, func() bool { return true })
+		tmpl, err := FromString(env, c.input, nil, c.globals, func() bool { return true })
 		if err != nil {
 			t.Fatalf("Failed to create template %v", err)
 		}

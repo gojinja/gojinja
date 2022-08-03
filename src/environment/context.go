@@ -2,6 +2,7 @@ package environment
 
 import (
 	"github.com/gojinja/gojinja/src/utils"
+	"github.com/gojinja/gojinja/src/utils/iterator"
 	"github.com/gojinja/gojinja/src/utils/set"
 	"golang.org/x/exp/maps"
 )
@@ -13,6 +14,8 @@ type evalContext struct {
 	store      map[string]any
 }
 
+type stringGenerator = func(context *renderContext) (iterator.Iterator[string], error)
+
 type renderContext struct {
 	env          *Environment
 	parent       map[string]any
@@ -20,7 +23,7 @@ type renderContext struct {
 	vars         map[string]any
 	exportedVars set.Set[string]
 	globalsKeys  set.Set[string]
-	blocks       map[string][]func(context *renderContext) ([]string, error) // TODO alias type?
+	blocks       map[string][]stringGenerator
 	evalCtx      *evalContext
 }
 
@@ -43,7 +46,7 @@ func newEvalContext(env *Environment, templateName *string) *evalContext {
 	}
 }
 
-func newRenderContext(env *Environment, parent map[string]any, templateName *string, blocks map[string]func(context *renderContext) ([]string, error), globals map[string]any) *renderContext {
+func newRenderContext(env *Environment, parent map[string]any, templateName *string, blocks map[string]stringGenerator, globals map[string]any) *renderContext {
 	globalsKeys := set.New[string]()
 	for k := range globals {
 		globalsKeys.Add(k)
@@ -52,9 +55,9 @@ func newRenderContext(env *Environment, parent map[string]any, templateName *str
 	// create the initial mapping of blocks. Whenever template inheritance
 	// takes place the runtime will update this mapping with the new blocks
 	// from the template.
-	wrappedBlocks := make(map[string][]func(context *renderContext) ([]string, error))
+	wrappedBlocks := make(map[string][]stringGenerator)
 	for k, v := range blocks {
-		wrappedBlocks[k] = []func(context *renderContext) ([]string, error){v}
+		wrappedBlocks[k] = []stringGenerator{v}
 	}
 
 	return &renderContext{ // TODO use env.contextClass
@@ -69,7 +72,7 @@ func newRenderContext(env *Environment, parent map[string]any, templateName *str
 	}
 }
 
-func NewContext(env *Environment, templateName *string, blocks map[string]func(context *renderContext) ([]string, error), vars map[string]any, shared bool, globals map[string]any, locals map[string]any) *renderContext {
+func NewContext(env *Environment, templateName *string, blocks map[string]stringGenerator, vars map[string]any, shared bool, globals map[string]any, locals map[string]any) *renderContext {
 	// TODO should probably return an interface of a context instead of concrete class renderContext
 	if vars == nil {
 		vars = make(map[string]any)

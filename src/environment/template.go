@@ -1,16 +1,20 @@
 package environment
 
 import (
+	"fmt"
 	"github.com/gojinja/gojinja/src/nodes"
+	"github.com/gojinja/gojinja/src/utils"
+	"github.com/gojinja/gojinja/src/utils/iterator"
 )
 
 type ITemplate interface {
 	IsUpToDate() bool
 	Globals() map[string]any
 	Render(variables map[string]any) (any, error)
+	Srender(variables map[string]any) (string, error)                     // Srender, like fmt.Sprint
+	Generate(variables map[string]any) (iterator.Iterator[string], error) // TODO or iterator.Iterator[any]?
+	Stream(variables map[string]any) (*TemplateStream, error)
 }
-
-type Class struct{}
 
 type Template struct {
 	filename       *string
@@ -18,25 +22,27 @@ type Template struct {
 	env            *Environment
 	globals        map[string]any
 	upToDate       UpToDate
+	isNative       bool
 	name           *string // TODO track where this should come from
-	blocks         map[string]func(ctx *renderContext) ([]string, error)
-	rootRenderFunc map[string]func(ctx *renderContext) ([]string, error)
+	blocks         map[string]stringGenerator
+	rootRenderFunc map[string]stringGenerator
 }
 
 type UpToDate = func() bool
 
-func (c Class) FromString(env *Environment, source string, filename *string, globals map[string]any, upToDate UpToDate) (ITemplate, error) {
+func FromString(env *Environment, source string, filename *string, globals map[string]any, upToDate UpToDate) (ITemplate, error) {
 	ast, err := env.parse(source, filename)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Template{ // TODO don't ignore `Class`
+	return &Template{
 		filename: filename,
 		ast:      ast,
 		env:      env,
 		globals:  env.MakeGlobals(globals),
 		upToDate: upToDate,
+		isNative: env.IsNative, // TODO respect this setting during rendering etc.
 	}, nil
 }
 
@@ -50,7 +56,43 @@ func (t *Template) Globals() map[string]any {
 
 func (t *Template) Render(variables map[string]any) (any, error) {
 	ctx := t.newContext(variables, false, nil)
+	// TODO iterator returned from renderTemplate must never err during iteration.
+	// It means we have to validate everything before rendering. Otherwise it'll silently fail.
+	// Maybe renderTemplate should return an Iterator[Tuple[string], any]?
+	// It may even turn out that we need both (pre-validation & runtime error handling)
+	// Exceptions would make it a no-brainer.
+	templateGenerator, err := renderTemplate(ctx, t.ast)
+	if err != nil {
+		return nil, err
+	}
+	return t.env.Concat(iterator.ToSlice(iterator.Map(templateGenerator, utils.StrAsAny))), nil
+}
+
+func (t *Template) Srender(variables map[string]any) (string, error) {
+	s, err := t.Render(variables)
+	if err != nil {
+		return "", err
+	}
+
+	switch v := s.(type) {
+	case string:
+		return v, nil
+	default:
+		return fmt.Sprint(v), nil
+	}
+}
+
+func (t *Template) Generate(variables map[string]any) (iterator.Iterator[string], error) {
+	ctx := t.newContext(variables, false, nil)
 	return renderTemplate(ctx, t.ast)
+}
+
+func (t *Template) Stream(variables map[string]any) (*TemplateStream, error) {
+	it, err := t.Generate(variables)
+	if err != nil {
+		return nil, err
+	}
+	return newTemplateStream(it), nil
 }
 
 func (t *Template) newContext(variables map[string]any, shared bool, locals map[string]any) *renderContext {
