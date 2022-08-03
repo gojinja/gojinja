@@ -48,14 +48,14 @@ func renderTemplate(ctx *renderContext, node *nodes.Template) (iterator.Iterator
 	}), nil
 }
 
+func (r *renderer) validateAST(*nodes.Template) error {
+	// TODO
+	return nil
+}
+
 func (r *renderer) renderNode(node nodes.Node) error {
 	if err := r.out.write("xD"); err != nil { // TODO
 		return err
 	}
-	return nil
-}
-
-func (r *renderer) validateAST(*nodes.Template) error {
-	// TODO
 	return nil
 }

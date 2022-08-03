@@ -11,8 +11,8 @@ type ITemplate interface {
 	IsUpToDate() bool
 	Globals() map[string]any
 	Render(variables map[string]any) (any, error)
-	Srender(variables map[string]any) (string, error)                     // Srender, like fmt.Sprint
-	Generate(variables map[string]any) (iterator.Iterator[string], error) // TODO or iterator.Iterator[any]?
+	Srender(variables map[string]any) (string, error) // Srender, like fmt.Sprint
+	Generate(variables map[string]any) (iterator.Iterator[string], error)
 	Stream(variables map[string]any) (*TemplateStream, error)
 }
 
@@ -42,7 +42,7 @@ func FromString(env *Environment, source string, filename *string, globals map[s
 		env:      env,
 		globals:  env.MakeGlobals(globals),
 		upToDate: upToDate,
-		isNative: env.IsNative, // TODO respect this setting during rendering etc.
+		isNative: env.IsNative, // TODO respect this setting during rendering
 	}, nil
 }
 
