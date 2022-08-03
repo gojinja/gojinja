@@ -56,16 +56,16 @@ func (t *Template) Globals() map[string]any {
 
 func (t *Template) Render(variables map[string]any) (any, error) {
 	ctx := t.newContext(variables, false, nil)
-	// TODO iterator returned from renderTemplate must never err during iteration.
-	// It means we have to validate everything before rendering. Otherwise it'll silently fail.
-	// Maybe renderTemplate should return an Iterator[Tuple[string], any]?
-	// It may even turn out that we need both (pre-validation & runtime error handling)
-	// Exceptions would make it a no-brainer.
+
 	templateGenerator, err := renderTemplate(ctx, t.ast)
 	if err != nil {
 		return nil, err
 	}
-	return t.env.Concat(iterator.ToSlice(iterator.Map(templateGenerator, utils.StrAsAny))), nil
+	pieces, err := iterator.ToSlice(iterator.Map(templateGenerator, utils.AsAny[string]))
+	if err != nil {
+		return nil, err
+	}
+	return t.env.Concat(pieces), nil
 }
 
 func (t *Template) Srender(variables map[string]any) (string, error) {

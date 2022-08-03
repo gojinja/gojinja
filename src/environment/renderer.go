@@ -30,21 +30,32 @@ type renderer struct {
 func renderTemplate(ctx *renderContext, node *nodes.Template) (iterator.Iterator[string], error) {
 	// Renders the template piece by piece (iteration over statements).
 
-	// TODO support rendering the template in pieces (iteration over statements)
-
 	renderer := &renderer{
 		ctx: ctx,
 		out: &output{},
 	}
-	if err := renderer.renderTemplate(node); err != nil {
-		return iterator.Once(""), err
+	if err := renderer.validateAST(node); err != nil {
+		return nil, err
 	}
-	return iterator.FromSlice([]string{renderer.out.builder.String()}), nil
+
+	return iterator.Map(iterator.FromSlice(node.Body), func(n nodes.Node) (string, error) {
+		if err := renderer.renderNode(n); err != nil {
+			return "", err
+		}
+		s := renderer.out.builder.String()
+		renderer.out.builder.Reset()
+		return s, nil
+	}), nil
 }
 
-func (r *renderer) renderTemplate(node *nodes.Template) error {
+func (r *renderer) renderNode(node nodes.Node) error {
 	if err := r.out.write("xD"); err != nil { // TODO
 		return err
 	}
+	return nil
+}
+
+func (r *renderer) validateAST(*nodes.Template) error {
+	// TODO
 	return nil
 }

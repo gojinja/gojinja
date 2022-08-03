@@ -19,7 +19,7 @@ func newTemplateStream(it iterator.Iterator[string]) *TemplateStream {
 	}
 }
 
-func (t *TemplateStream) Next() string {
+func (t *TemplateStream) Next() (string, error) {
 	if t.bufferSize == 1 {
 		return t.internalIterator.Next()
 	}
@@ -27,7 +27,10 @@ func (t *TemplateStream) Next() string {
 	var buffer []string
 	nonemptyItems := 0
 	for t.internalIterator.HasNext() && nonemptyItems < t.bufferSize {
-		c := t.internalIterator.Next()
+		c, err := t.internalIterator.Next()
+		if err != nil {
+			return "", err
+		}
 		buffer = append(buffer, c)
 		if c != "" {
 			nonemptyItems += 1
@@ -36,7 +39,7 @@ func (t *TemplateStream) Next() string {
 
 	// This is literal translation from jinja -- and most likely a bug in jinja.
 	// default concat("") is used instead of environment.Concat
-	return strings.Join(buffer, "")
+	return strings.Join(buffer, ""), nil
 }
 
 func (t *TemplateStream) HasNext() bool {

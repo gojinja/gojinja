@@ -20,6 +20,6 @@ func NativeConcat(parts []any) any {
 	panic("not implemented")
 }
 
-func StrAsAny(v string) any {
-	return v
+func AsAny[T any](v T) (any, error) {
+	return v, nil
 }
