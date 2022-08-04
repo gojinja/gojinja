@@ -26,19 +26,19 @@ var cases = []testRender{
 		res:   "1 + 1",
 	},
 	{
-		input: "{{ 1 + 1 }}",
-		res:   "2",
+		input: "{{ 2 + 2 * 2 }}",
+		res:   "6",
 	},
-	//	{
-	//		input: `{% if name != "OFF" %}
-	//my name is {{ name }}
-	//{% endif %}
-	//{{ 5 + 1 }}`,
-	//		res: "my name is gojinja\n6",
-	//		variables: map[string]any{
-	//			"name": "gojinja",
-	//		},
-	//	},
+	{
+		input: `{% if name != "OFF" %}
+	my name is {{ name }}
+	{% endif %}
+	{{ 5 + 1 }}`,
+		res: "my name is gojinja\n6",
+		variables: map[string]any{
+			"name": "gojinja",
+		},
+	},
 }
 
 func TestRenderE2E(t *testing.T) {

@@ -1,6 +1,9 @@
 package environment
 
-import "github.com/gojinja/gojinja/src/utils/set"
+import (
+	"github.com/gojinja/gojinja/src/nodes"
+	"github.com/gojinja/gojinja/src/utils/set"
+)
 
 type symbols struct {
 	level  int
@@ -29,6 +32,10 @@ func newSymbols(parent *symbols, level *int) *symbols {
 		loads:  make(map[string]any),
 		stores: set.New[string](),
 	}
+}
+
+func (s *symbols) analyzeNode(node nodes.Node) {
+	// TODO port from jinja
 }
 
 type frame struct {
