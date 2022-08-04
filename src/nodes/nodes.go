@@ -5,7 +5,7 @@ import (
 	"golang.org/x/exp/slices"
 )
 
-// TODO check if all Nodes have fields in the same order as in jinja (and yield them in thid order in IterChildNodes)
+// TODO check if all Nodes have fields in the same order as in jinja (and yield them in this order in IterChildNodes)
 
 type Node interface {
 	GetLineno() int
