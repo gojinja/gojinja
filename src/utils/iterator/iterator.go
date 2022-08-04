@@ -88,3 +88,50 @@ func (iter *mapIterator[T, F]) Next() (F, error) {
 	}
 	return iter.f(v)
 }
+
+func Empty[T any]() Iterator[T] {
+	return &emptyIterator[T]{}
+}
+
+type emptyIterator[T any] struct {
+}
+
+func (iter *emptyIterator[T]) HasNext() bool {
+	return false
+}
+
+func (iter *emptyIterator[T]) Next() (T, error) {
+	var zero T
+	return zero, ExhaustedError{}
+}
+
+func Chain[T any](it1, it2 Iterator[T]) Iterator[T] {
+	// If it1 or it2 is emptyIterator, we return the other without wrapping it.
+	// It's not really a big optimization, but it makes debugging easier.
+	if _, ok := it1.(*emptyIterator[T]); ok {
+		return it2
+	}
+	if _, ok := it2.(*emptyIterator[T]); ok {
+		return it1
+	}
+
+	return &chainedIterator[T]{
+		it1: it1,
+		it2: it2,
+	}
+}
+
+type chainedIterator[T any] struct {
+	it1, it2 Iterator[T]
+}
+
+func (iter *chainedIterator[T]) HasNext() bool {
+	return iter.it1.HasNext() || iter.it2.HasNext()
+}
+
+func (iter *chainedIterator[T]) Next() (T, error) {
+	if iter.it1.HasNext() {
+		return iter.it1.Next()
+	}
+	return iter.it2.Next()
+}
