@@ -6,6 +6,7 @@ import (
 	"github.com/gojinja/gojinja/src/nodes"
 	"github.com/gojinja/gojinja/src/operator"
 	"github.com/gojinja/gojinja/src/utils"
+	"github.com/gojinja/gojinja/src/utils/iterator"
 )
 
 type evaluator struct {
@@ -196,29 +197,9 @@ func (ev *evaluator) evalLiteral(lit nodes.Literal) (any, error) {
 	case *nodes.TemplateData:
 		return v.Data, nil
 	case *nodes.Tuple:
-		{
-			tuple := make([]any, 0, len(v.Items))
-			for _, itemExpr := range v.Items {
-				item, err := ev.evalExpr(itemExpr)
-				if err != nil {
-					return nil, err
-				}
-				tuple = append(tuple, item)
-			}
-			return tuple, nil
-		}
+		return iterator.ToSlice(iterator.StopOnError(iterator.Map(iterator.FromSlice(v.Items), ev.evalExpr)))
 	case *nodes.List:
-		{
-			tuple := make([]any, 0, len(v.Items))
-			for _, itemExpr := range v.Items {
-				item, err := ev.evalExpr(itemExpr)
-				if err != nil {
-					return nil, err
-				}
-				tuple = append(tuple, item)
-			}
-			return tuple, nil
-		}
+		return iterator.ToSlice(iterator.StopOnError(iterator.Map(iterator.FromSlice(v.Items), ev.evalExpr)))
 	case *nodes.Dict:
 		{
 			dict := make(map[any]any, len(v.Items))

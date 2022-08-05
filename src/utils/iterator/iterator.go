@@ -135,3 +135,31 @@ func (iter *chainedIterator[T]) Next() (T, error) {
 	}
 	return iter.it2.Next()
 }
+
+func StopOnError[T any](it Iterator[T]) Iterator[T] {
+	if !it.HasNext() {
+		return it
+	}
+
+	return &stopOnError[T]{
+		internal: it,
+		errored:  false,
+	}
+}
+
+type stopOnError[T any] struct {
+	internal Iterator[T]
+	errored  bool
+}
+
+func (iter *stopOnError[T]) HasNext() bool {
+	return !iter.errored && iter.internal.HasNext()
+}
+
+func (iter *stopOnError[T]) Next() (T, error) {
+	if !iter.internal.HasNext() {
+		var zero T
+		return zero, ExhaustedError{}
+	}
+	return iter.internal.Next()
+}
