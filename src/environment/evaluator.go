@@ -8,12 +8,15 @@ import (
 )
 
 type evaluator struct {
-	ctx *renderContext
+	ctx      *renderContext
+	renderer *renderer
+	frame    *frame
 }
 
-func evalExpr(ctx *renderContext, expr nodes.Expr) (any, error) {
+func evalExpr(ctx *renderContext, frame *frame, expr nodes.Expr) (any, error) {
 	evaluator := &evaluator{
-		ctx: ctx,
+		ctx:   ctx,
+		frame: frame,
 	}
 	v, err := evaluator.evalExpr(expr)
 	if err != nil {
@@ -51,7 +54,7 @@ func (ev *evaluator) evalExpr(expr nodes.Expr) (any, error) {
 	case *nodes.CondExpr:
 		panic("unimplemented")
 	case *nodes.Compare:
-		panic("unimplemented")
+		return ev.evalCompare(e)
 	case *nodes.Concat:
 		panic("unimplemented")
 	case *nodes.Call:
@@ -75,17 +78,8 @@ func (ev *evaluator) evalExpr(expr nodes.Expr) (any, error) {
 	}
 }
 
-func (ev *evaluator) evalBinExpr(expr *nodes.BinExpr) (any, error) {
-	left, err := ev.evalExpr(expr.Left)
-	if err != nil {
-		return nil, err
-	}
-	right, err := ev.evalExpr(expr.Right)
-	if err != nil {
-		return nil, err
-	}
-
-	switch expr.Op {
+func (ev *evaluator) evalBinExprOnAny(left, right any, op string) (any, error) {
+	switch op {
 	// Arithmetic
 	case lexer.TokenAdd:
 		return operator.Add(left, right)
@@ -114,14 +108,82 @@ func (ev *evaluator) evalBinExpr(expr *nodes.BinExpr) (any, error) {
 		return operator.Lt(left, right)
 	case lexer.TokenLteq:
 		return operator.Le(left, right)
+		// Membership
+	case "in":
+		return operator.Contains(right, left)
+	case "notin":
+		{
+			b, err := operator.Contains(right, left)
+			return !b, err
+		}
 	default:
-		panic(fmt.Sprintf("unexpected operator `%v`", expr.Op))
+		panic(fmt.Sprintf("unexpected operator `%v`", op))
 	}
 }
 
+func (ev *evaluator) evalBinExpr(expr *nodes.BinExpr) (any, error) {
+	left, err := ev.evalExpr(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+	right, err := ev.evalExpr(expr.Right)
+	if err != nil {
+		return nil, err
+	}
+	return ev.evalBinExprOnAny(left, right, expr.Op)
+}
+
+func (ev *evaluator) evalCompare(expr *nodes.Compare) (any, error) {
+	// TODO this will probably need to be reimplemented, because python allows chaining of comparisons
+	// 5 == (1+4) == (3+2)
+	// should evaluate to true
+	acc, err := ev.evalExpr(expr.Expr)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, op := range expr.Ops {
+		right, err := ev.evalExpr(op.Expr)
+		if err != nil {
+			return nil, err
+		}
+		acc, err = ev.evalBinExprOnAny(acc, right, op.Op)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return acc, nil
+}
+
 func (ev *evaluator) evalName(name *nodes.Name) (any, error) {
-	return "EvaluatedNameValue", nil
-	// TODO: implement
+	//ref = frame.symbols.ref(node.name)
+
+	if name.Ctx == "store" && (ev.frame.toplevel || ev.frame.loopFrame || ev.frame.blockFrame) {
+		// TODO support stores in expressions
+		//if ev.frame.assignStack != nil {
+		//	ev.frame.assignStack.lastElement().add(name.Name)
+		//}
+	}
+
+	ref, err := ev.frame.symbols.ref(name.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	// If we are looking up a variable we might have to deal with the
+	// case where it's undefined.  We can skip that case if the load
+	// instruction indicates a parameter which are always defined.
+	if name.Ctx == "load" {
+		load := ev.frame.symbols.findLoad(ref)
+		if !(load != nil && load.variant == varLoadParameter && !ev.renderer.parameterIsUndeclared(ref)) {
+			//if {ref} is missing {
+			//	return undefined(name={node.name!r}), nil
+			//}
+			//return ref, nil
+			panic("this case is not implemented")
+		}
+	}
+	return ref, nil
 }
 
 func (ev *evaluator) evalLiteral(lit nodes.Literal) (any, error) {
@@ -173,4 +235,12 @@ func (ev *evaluator) evalLiteral(lit nodes.Literal) (any, error) {
 	default:
 		panic(fmt.Sprintf("unexpected Literal type of value `%v` (this is a bug in gojinja)", lit))
 	}
+}
+
+func coerceBool(ctx *renderContext, frame *frame, expr nodes.Expr) (bool, error) {
+	cond, err := evalExpr(ctx, frame, expr)
+	if err != nil {
+		return false, err
+	}
+	return operator.Bool(cond)
 }

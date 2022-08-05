@@ -471,13 +471,13 @@ func (h *HelperCommon) GetLineno() int {
 
 type Operand struct {
 	Op   string
-	Expr Node
+	Expr Expr
 	HelperCommon
 }
 
 func (o *Operand) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
 	if includeField("expr", exclude, only) {
-		return iterator.Once(o.Expr)
+		return iterator.Once(Node(o.Expr))
 	}
 	return iterator.Empty[Node]()
 }
@@ -912,7 +912,7 @@ func (k *Keyword) SetCtx(ctx string) {
 }
 
 type If struct {
-	Test Node
+	Test Expr // jinja says it's Node, but having it as expr makes much more sense
 	Body []Node
 	Elif []*If
 	Else []Node
@@ -922,7 +922,7 @@ type If struct {
 func (i *If) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
 	it := iterator.Empty[Node]()
 	if includeField("test", exclude, only) {
-		it = iterator.Chain(it, iterator.Once(i.Test))
+		it = iterator.Chain(it, iterator.Once(Node(i.Test)))
 	}
 	if includeField("body", exclude, only) {
 		it = iterator.Chain(it, iterator.FromSlice(i.Body))
