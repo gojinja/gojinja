@@ -30,6 +30,10 @@ var cases = []testRender{
 		res:   "6",
 	},
 	{
+		input: "{{ 5 * 'str' }}",
+		res:   "strstrstrstrstr",
+	},
+	{
 		input: "{{ 2 in [1, 2, 3] }}",
 		res:   "true",
 	},
