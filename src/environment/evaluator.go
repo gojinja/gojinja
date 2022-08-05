@@ -5,18 +5,22 @@ import (
 	"github.com/gojinja/gojinja/src/lexer"
 	"github.com/gojinja/gojinja/src/nodes"
 	"github.com/gojinja/gojinja/src/operator"
+	"github.com/gojinja/gojinja/src/utils"
 )
 
 type evaluator struct {
 	ctx      *renderContext
+	evalCtx  *evalContext
 	renderer *renderer
 	frame    *frame
 }
 
-func evalExpr(ctx *renderContext, frame *frame, expr nodes.Expr) (any, error) {
+func evalExpr(ctx *renderContext, renderer *renderer, frame *frame, expr nodes.Expr) (any, error) {
 	evaluator := &evaluator{
-		ctx:   ctx,
-		frame: frame,
+		ctx:      ctx,
+		evalCtx:  ctx.evalCtx,
+		renderer: renderer,
+		frame:    frame,
 	}
 	v, err := evaluator.evalExpr(expr)
 	if err != nil {
@@ -156,8 +160,6 @@ func (ev *evaluator) evalCompare(expr *nodes.Compare) (any, error) {
 }
 
 func (ev *evaluator) evalName(name *nodes.Name) (any, error) {
-	//ref = frame.symbols.ref(node.name)
-
 	if name.Ctx == "store" && (ev.frame.toplevel || ev.frame.loopFrame || ev.frame.blockFrame) {
 		// TODO support stores in expressions
 		//if ev.frame.assignStack != nil {
@@ -176,11 +178,12 @@ func (ev *evaluator) evalName(name *nodes.Name) (any, error) {
 	if name.Ctx == "load" {
 		load := ev.frame.symbols.findLoad(ref)
 		if !(load != nil && load.variant == varLoadParameter && !ev.renderer.parameterIsUndeclared(ref)) {
-			//if {ref} is missing {
-			//	return undefined(name={node.name!r}), nil
-			//}
-			//return ref, nil
-			panic("this case is not implemented")
+			v, ok := ev.evalCtx.Get(ref)
+			if !ok || utils.IsMissing(v) {
+				return ev.ctx.env.Undefined(nil, nil, &name.Name, nil, nil), nil
+			} else {
+				return v, nil
+			}
 		}
 	}
 	return ref, nil
@@ -237,8 +240,8 @@ func (ev *evaluator) evalLiteral(lit nodes.Literal) (any, error) {
 	}
 }
 
-func coerceBool(ctx *renderContext, frame *frame, expr nodes.Expr) (bool, error) {
-	cond, err := evalExpr(ctx, frame, expr)
+func coerceBool(ctx *renderContext, frame *frame, renderer *renderer, expr nodes.Expr) (bool, error) {
+	cond, err := evalExpr(ctx, renderer, frame, expr)
 	if err != nil {
 		return false, err
 	}

@@ -12,6 +12,16 @@ type evalContext struct {
 	autoEscape bool
 	volatile   bool
 	store      map[string]any
+	kvstore    map[string]any
+}
+
+func (e *evalContext) Get(key string) (any, bool) {
+	k, ok := e.kvstore[key]
+	return k, ok
+}
+
+func (e *evalContext) Set(key string, value any) {
+	e.kvstore[key] = value
 }
 
 type stringGenerator = func(context *renderContext) (iterator.Iterator[string], error)
@@ -27,14 +37,36 @@ type renderContext struct {
 	evalCtx      *evalContext
 }
 
-func (c *renderContext) Get(key string) any {
+func (c *renderContext) Get(key string, default_ any) any {
+	rv := c.ResolveOrMissing(key)
+	if utils.IsMissing(rv) {
+		return default_
+	}
+	return rv
+}
+
+func (c *renderContext) Resolve(key string) any {
+	// Look up a variable by name, or return an :class:`Undefined`
+	// object if the key is not found.
+
+	rv := c.ResolveOrMissing(key)
+	if utils.IsMissing(rv) {
+		return c.env.Undefined(nil, nil, &key, nil, nil)
+	}
+	return rv
+}
+
+func (c *renderContext) ResolveOrMissing(key string) any {
+	// Look up a variable by name, or return a ``missing`` sentinel
+	// if the key is not found.
+
 	if v, ok := c.vars[key]; ok {
 		return v
 	}
 	if v, ok := c.parent[key]; ok {
 		return v
 	}
-	return nil
+	return utils.GetMissing()
 }
 
 func newEvalContext(env *Environment, templateName *string) *evalContext {
@@ -43,6 +75,7 @@ func newEvalContext(env *Environment, templateName *string) *evalContext {
 		autoEscape: env.AutoEscape(templateName),
 		volatile:   false,
 		store:      make(map[string]any),
+		kvstore:    make(map[string]any),
 	}
 }
 
@@ -96,7 +129,7 @@ func NewContext(env *Environment, templateName *string, blocks map[string]string
 			parent = maps.Clone(parent)
 		}
 		for k, v := range locals {
-			if _, ok := v.(utils.Missing); !ok {
+			if !utils.IsMissing(v) {
 				parent[k] = v
 			}
 		}

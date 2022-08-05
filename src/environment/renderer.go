@@ -5,6 +5,7 @@ import (
 	"github.com/gojinja/gojinja/src/nodes"
 	"github.com/gojinja/gojinja/src/utils"
 	"github.com/gojinja/gojinja/src/utils/iterator"
+	"github.com/gojinja/gojinja/src/utils/set"
 	"strings"
 )
 
@@ -38,13 +39,15 @@ type renderer struct {
 	//         # registry of all filters and tests (global, not block local)
 	//        self.tests: t.Dict[str, str] = {}
 	//        self.filters: t.Dict[str, str] = {}
+
+	paramDefBlock []set.Set[string]
 }
 
 func renderTemplate(ctx *renderContext, node *nodes.Template) (iterator.Iterator[string], error) {
 	// Renders the template piece by piece (iteration over statements).
 
 	renderer := &renderer{
-		evalCtx: newEvalContext(ctx.env, ctx.name),
+		evalCtx: ctx.evalCtx,
 		ctx:     ctx,
 		out:     &output{},
 		blocks:  make(map[string]*nodes.Block),
@@ -63,7 +66,9 @@ func renderTemplate(ctx *renderContext, node *nodes.Template) (iterator.Iterator
 
 	frame := newFrame(renderer.evalCtx, nil, nil)
 	// TODO check for undeclared self & set if needed
-	frame.symbols.analyzeNode(node)
+	if err := frame.symbols.analyzeNode(node, nil); err != nil {
+		return nil, fmt.Errorf("error preparing a frame for root node: %w", err)
+	}
 	frame.toplevel = true
 	frame.rootlevel = true
 	frame.requireOutputCheck = true // TODO jinja only sets it based on some conditions, but I believe we need it to be always true
@@ -75,7 +80,39 @@ func renderTemplate(ctx *renderContext, node *nodes.Template) (iterator.Iterator
 
 	// TODO lot's of stuff probably missing from here, but it's such a tangled mess...
 
+	if err := renderer.enterFrame(frame); err != nil {
+		return nil, err
+	}
+	// renderer.pull_dependencies(node.body)
+
 	return renderer.renderTemplate(node, frame)
+}
+
+func (r *renderer) enterFrame(frame *frame) error {
+	var undefs []string
+
+	for target, symbolLoadInfo := range frame.symbols.loads {
+		if symbolLoadInfo.variant == varLoadParameter {
+			// do nothing
+		} else if symbolLoadInfo.variant == varLoadResolve {
+			// self.writeline(f"{target} = {self.get_resolve_func()}({param!r})")
+			r.evalCtx.Set(target, r.ctx.ResolveOrMissing(*symbolLoadInfo.target)) // TODO potentially dangerous dereference?
+		} else if symbolLoadInfo.variant == varLoadAlias {
+			// self.writeline(f"{target} = {param}")
+			v, ok := r.evalCtx.Get(*symbolLoadInfo.target) // TODO maybe ref wrap needed?
+			if !ok {
+				v = utils.GetMissing() // TODO correct?
+			}
+			r.evalCtx.Set(target, v)
+		} else if symbolLoadInfo.variant == varLoadUndefined {
+			undefs = append(undefs, target)
+		} else {
+			return fmt.Errorf("unknown load instruction")
+		}
+	}
+
+	// TODO set undefs to missing
+	return nil
 }
 
 func (r *renderer) validateAST(*nodes.Template) error {
@@ -136,15 +173,41 @@ func (r *renderer) renderNode(node nodes.Node, frame *frame) error {
 		// TODO it's possible that some of the nodes are missing in the switch, check this in the future
 		panic(fmt.Sprintf("unexpected node type `%v` (this is a bug in gojinja)", node))
 	}
+}
 
+func (r *renderer) blockvisit(body []nodes.Node, frame *frame) error {
+	for _, n := range body {
+		if err := r.renderNode(n, frame); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (r *renderer) renderIf(node *nodes.If, frame *frame) error {
-	if err := r.out.write("[If]"); err != nil { // TODO
+	ifFrame := frame.soft()
+
+	cond, err := coerceBool(r.ctx, frame, r, node.Test)
+	if err != nil {
 		return err
 	}
-	return nil
+
+	// if body
+	if cond {
+		return r.blockvisit(node.Body, ifFrame)
+	}
+	// else-ifs
+	for _, elif := range node.Elif {
+		cond, err := coerceBool(r.ctx, frame, r, node.Test)
+		if err != nil {
+			return err
+		}
+		if cond {
+			return r.blockvisit(elif.Body, ifFrame)
+		}
+	}
+	// else
+	return r.blockvisit(node.Else, ifFrame)
 }
 
 func (r *renderer) renderOutput(node *nodes.Output, frame *frame) error {
@@ -178,7 +241,7 @@ func (r *renderer) write(v any) error {
 func (r *renderer) writeOutputChild(child nodes.Expr, frame *frame) error {
 	// TODO support finalize [substitute proper finalizer where identity is used]
 
-	v, err := evalExpr(r.ctx, child)
+	v, err := evalExpr(r.ctx, r, frame, child)
 	if err != nil {
 		return err
 	}
@@ -203,4 +266,12 @@ func (r *renderer) writeOutputChild(child nodes.Expr, frame *frame) error {
 	}
 
 	return r.write(v)
+}
+
+func (r *renderer) parameterIsUndeclared(target string) bool {
+	// TODO isn't it negated?
+	if len(r.paramDefBlock) == 0 {
+		return false
+	}
+	return r.paramDefBlock[len(r.paramDefBlock)-1].Has(target)
 }

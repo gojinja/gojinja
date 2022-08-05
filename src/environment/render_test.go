@@ -30,10 +30,12 @@ var cases = []testRender{
 		res:   "6",
 	},
 	{
-		input: `{% if name != "OFF" %}
-	my name is {{ name }}
-	{% endif %}
-	{{ 5 + 1 }}`,
+		input: "{{ 2 in [1, 2, 3] }}",
+		res:   "true",
+	},
+	{
+		input: `{% if name != "OFF" %}my name is {{ name }}{% endif %}
+{{ 5 + 1 }}`,
 		res: "my name is gojinja\n6",
 		variables: map[string]any{
 			"name": "gojinja",
