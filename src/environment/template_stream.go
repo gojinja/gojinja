@@ -2,8 +2,8 @@ package environment
 
 import (
 	"fmt"
+	"github.com/gojinja/gojinja/src/utils"
 	"github.com/gojinja/gojinja/src/utils/iterator"
-	"strings"
 )
 
 type TemplateStream struct {
@@ -24,7 +24,7 @@ func (t *TemplateStream) Next() (string, error) {
 		return t.internalIterator.Next()
 	}
 
-	var buffer []string
+	var buffer []any
 	nonemptyItems := 0
 	for t.internalIterator.HasNext() && nonemptyItems < t.bufferSize {
 		c, err := t.internalIterator.Next()
@@ -39,7 +39,7 @@ func (t *TemplateStream) Next() (string, error) {
 
 	// This is literal translation from jinja -- and most likely a bug in jinja.
 	// default concat("") is used instead of environment.Concat
-	return strings.Join(buffer, ""), nil
+	return utils.Concat(buffer).(string), nil // (it's concat of strings, this is safe)
 }
 
 func (t *TemplateStream) HasNext() bool {

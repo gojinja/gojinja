@@ -18,7 +18,7 @@ const (
 
 type symbolLoad struct {
 	variant string  // One of the constants above
-	target  *string // The name of the symbol (maybe nil)
+	param   *string // The name of the symbol (maybe nil)
 }
 
 type symbols struct {
@@ -52,7 +52,7 @@ func newSymbols(parent *symbols, level *int) *symbols {
 
 func (s *symbols) declareParameter(name string) string {
 	s.stores.Add(name)
-	return s.defineRef(name, &symbolLoad{variant: varLoadParameter, target: nil})
+	return s.defineRef(name, &symbolLoad{variant: varLoadParameter, param: nil})
 }
 
 func (s *symbols) store(name string) {
@@ -69,13 +69,13 @@ func (s *symbols) store(name string) {
 		if s.parent != nil {
 			outerRef := s.parent.findRef(name)
 			if outerRef != nil {
-				s.defineRef(name, &symbolLoad{variant: varLoadAlias, target: outerRef})
+				s.defineRef(name, &symbolLoad{variant: varLoadAlias, param: outerRef})
 				return
 			}
 		}
 
 		// Otherwise we can just set it to undefined.
-		s.defineRef(name, &symbolLoad{variant: varLoadUndefined, target: nil})
+		s.defineRef(name, &symbolLoad{variant: varLoadUndefined, param: nil})
 	}
 }
 
@@ -90,7 +90,7 @@ func (s *symbols) defineRef(name string, symbol *symbolLoad) string {
 
 func (s *symbols) load(name string) {
 	if s.findRef(name) == nil {
-		s.defineRef(name, &symbolLoad{variant: varLoadResolve, target: &name})
+		s.defineRef(name, &symbolLoad{variant: varLoadResolve, param: &name})
 	}
 }
 
@@ -119,18 +119,18 @@ func (s *symbols) branchUpdate(branchSymbols []*symbols) {
 
 		target := s.findRef(name)
 		if target == nil {
-			panic("target shouldn't be nil (it's a bug in jinja)")
+			panic("param shouldn't be nil (it's a bug in jinja)")
 		}
 
 		if s.parent != nil {
 			outerTarget := s.parent.findRef(name)
 			if outerTarget != nil {
-				s.loads[*target] = symbolLoad{variant: varLoadAlias, target: outerTarget}
+				s.loads[*target] = symbolLoad{variant: varLoadAlias, param: outerTarget}
 				continue
 			}
 		}
 		targetName := name
-		s.loads[*target] = symbolLoad{variant: varLoadResolve, target: &targetName}
+		s.loads[*target] = symbolLoad{variant: varLoadResolve, param: &targetName}
 	}
 }
 
@@ -426,10 +426,9 @@ func (r *rootVisitor) visitFor(v *nodes.For, args map[string]any) error {
 	} else {
 		return fmt.Errorf("invalid for_branch argument value %q", forBranch)
 	}
-	if branch != nil {
-		for _, child := range branch {
-			r.symbolVisitor.visit(child, nil)
-		}
+
+	for _, child := range branch {
+		r.symbolVisitor.visit(child, nil)
 	}
 
 	return nil

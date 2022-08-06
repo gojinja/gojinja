@@ -27,15 +27,15 @@ func (o *output) write(value any) error {
 }
 
 type renderer struct {
-	out                 *output
-	ctx                 *renderContext
-	evalCtx             *evalContext
-	blocks              map[string]*nodes.Block
-	createdBlockContext bool
-	importAliases       map[string]string
-	extendsSoFar        int
-	codeLineno          int // TODO this is probably not needed
-	hasKnownExtends     bool
+	out     *output
+	ctx     *renderContext
+	evalCtx *evalContext
+	blocks  map[string]*nodes.Block
+	// createdBlockContext bool
+	// importAliases       map[string]string
+	// extendsSoFar        int
+	// codeLineno          int // TODO this is probably not needed
+	hasKnownExtends bool
 	//         # registry of all filters and tests (global, not block local)
 	//        self.tests: t.Dict[str, str] = {}
 	//        self.filters: t.Dict[str, str] = {}
@@ -95,11 +95,11 @@ func (r *renderer) enterFrame(frame *frame) error {
 		if symbolLoadInfo.variant == varLoadParameter {
 			// do nothing
 		} else if symbolLoadInfo.variant == varLoadResolve {
-			// self.writeline(f"{target} = {self.get_resolve_func()}({param!r})")
-			r.evalCtx.Set(target, r.ctx.ResolveOrMissing(*symbolLoadInfo.target)) // TODO potentially dangerous dereference?
+			// self.writeline(f"{param} = {self.get_resolve_func()}({param!r})")
+			r.evalCtx.Set(target, r.ctx.ResolveOrMissing(*symbolLoadInfo.param)) // TODO potentially dangerous dereference?
 		} else if symbolLoadInfo.variant == varLoadAlias {
-			// self.writeline(f"{target} = {param}")
-			v, ok := r.evalCtx.Get(*symbolLoadInfo.target) // TODO maybe ref wrap needed?
+			// self.writeline(f"{param} = {param}")
+			v, ok := r.evalCtx.Get(*symbolLoadInfo.param) // TODO maybe ref wrap needed?
 			if !ok {
 				v = utils.GetMissing() // TODO correct?
 			}
@@ -111,7 +111,10 @@ func (r *renderer) enterFrame(frame *frame) error {
 		}
 	}
 
-	// TODO set undefs to missing
+	for _, target := range undefs {
+		// TODO need to wrap param in ref?
+		r.evalCtx.Set(target, utils.GetMissing())
+	}
 	return nil
 }
 

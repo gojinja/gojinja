@@ -17,15 +17,14 @@ type ITemplate interface {
 }
 
 type Template struct {
-	filename       *string
-	ast            *nodes.Template
-	env            *Environment
-	globals        map[string]any
-	upToDate       UpToDate
-	isNative       bool
-	name           *string // TODO track where this should come from
-	blocks         map[string]stringGenerator
-	rootRenderFunc map[string]stringGenerator
+	filename *string
+	ast      *nodes.Template
+	env      *Environment
+	globals  map[string]any
+	upToDate UpToDate
+	isNative bool
+	name     *string // TODO track where this should come from
+	blocks   map[string]stringGenerator
 }
 
 type UpToDate = func() bool
