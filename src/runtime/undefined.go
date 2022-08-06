@@ -196,6 +196,11 @@ func (u BaseUndefined) String_() (string, error) {
 	return "", nil
 }
 
+func (u BaseUndefined) String() string {
+	// TODO for debugging purposes only, change to return "" later
+	return "UNDEFINED"
+}
+
 func (u BaseUndefined) Len() (int, error) {
 	return 0, nil
 }

@@ -6,13 +6,15 @@ import (
 	"github.com/gojinja/gojinja/src/extensions"
 	"github.com/gojinja/gojinja/src/filters"
 	"github.com/gojinja/gojinja/src/lexer"
+	"github.com/gojinja/gojinja/src/nodes"
+	"github.com/gojinja/gojinja/src/parser"
 	"github.com/gojinja/gojinja/src/runtime"
+	"github.com/gojinja/gojinja/src/utils"
 	"github.com/gojinja/gojinja/src/utils/mapUtils"
 	lru "github.com/hashicorp/golang-lru"
 	"golang.org/x/exp/maps"
 	"golang.org/x/exp/slices"
 	"log"
-	"strings"
 )
 
 type ExtensionsMap map[string]extensions.IExtension
@@ -24,19 +26,19 @@ type ExtensionsMap map[string]extensions.IExtension
 // Modifications on environments after the first template was loaded
 // will lead to surprising effects and undefined behavior.
 type Environment struct {
-	Sandboxed     bool
-	Overlayed     bool
-	LinkedTo      *Environment
-	Shared        bool
-	Concat        func([]string) string
-	ContextClass  runtime.ContextClass
-	TemplateClass Class
+	Sandboxed    bool
+	Overlayed    bool
+	LinkedTo     *Environment
+	Shared       bool
+	Concat       func([]any) any
+	ContextClass ContextClass
+	IsNative     bool
 	*lexer.EnvLexerInformation
 	Optimized  bool
 	Extensions ExtensionsMap
 	Undefined  UndefinedConstructor
 	Finalize   func(...any) any
-	AutoEscape func(name string) bool
+	AutoEscape func(name *string) bool
 	Loader     *Loader
 	Cache      Cache
 	AutoReload bool
@@ -63,26 +65,32 @@ func (m mapCache) Get(key interface{}) (value interface{}, ok bool) {
 }
 
 func New(opts *EnvOpts) (*Environment, error) {
-	var err error
+	concat := utils.Concat
+	if opts.IsNative {
+		concat = utils.NativeConcat
+	}
+
 	env := &Environment{
 		Sandboxed:           false,
 		Overlayed:           false,
 		LinkedTo:            nil,
 		Shared:              false,
-		Concat:              func(strs []string) string { return strings.Join(strs, "") },
-		ContextClass:        runtime.ContextClass{},
-		TemplateClass:       Class{},
+		Concat:              concat,
+		ContextClass:        ContextClass{},
 		EnvLexerInformation: opts.EnvLexerInformation,
 		Optimized:           opts.Optimized,
 		Undefined:           opts.Undefined,
 		Finalize:            opts.Finalize,
 		Loader:              opts.Loader,
 		AutoReload:          opts.AutoReload,
+		IsNative:            opts.IsNative,
 		Filters:             maps.Clone(filters.Default),
 		Tests:               maps.Clone(Default),
 		Globals:             maps.Clone(defaults.DefaultNamespace),
 		Policies:            maps.Clone(defaults.DefaultPolicies),
 	}
+
+	var err error
 	env.AutoEscape, err = convertAutoEscape(opts.AutoEscape)
 	if err != nil {
 		return nil, err
@@ -100,11 +108,11 @@ func New(opts *EnvOpts) (*Environment, error) {
 	return env, nil
 }
 
-func convertAutoEscape(ae any) (func(name string) bool, error) {
+func convertAutoEscape(ae any) (func(name *string) bool, error) {
 	switch v := ae.(type) {
 	case bool:
-		return func(string) bool { return v }, nil
-	case func(string) bool:
+		return func(*string) bool { return v }, nil
+	case func(*string) bool:
 		return v, nil
 	default:
 		return nil, fmt.Errorf("unexpected type of AutoEscape")
@@ -149,6 +157,7 @@ type EnvOpts struct {
 	Loader     *Loader
 	CacheSize  int
 	AutoReload bool
+	IsNative   bool
 }
 
 type UndefinedConstructor func(hint *string, obj any, name *string, exc func(msg string) error, logger *log.Logger) runtime.IUndefined
@@ -226,4 +235,14 @@ func (env *Environment) loadTemplate(name string, globals map[string]any) (ITemp
 
 func (env *Environment) MakeGlobals(globals map[string]any) map[string]any {
 	return mapUtils.Chain(globals, env.Globals)
+}
+
+func (env *Environment) parse(source string, filename *string) (*nodes.Template, error) {
+	// TODO stream returned from lexer should be filtered through extensions streamFilters
+	stream, err := lexer.GetLexer(env.EnvLexerInformation).Tokenize(source, nil, filename, nil) // TODO fill name and state?
+	if err != nil {
+		return nil, err
+	}
+	p := parser.NewParser(stream, nil, nil, filename, nil) // TODO pass extensions slice; TODO fill name and state?
+	return p.Parse()
 }

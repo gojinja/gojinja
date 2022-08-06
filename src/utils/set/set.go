@@ -1,5 +1,7 @@
 package set
 
+import "golang.org/x/exp/maps"
+
 type Set[K comparable] map[K]struct{}
 
 func New[K comparable]() Set[K] {
@@ -25,4 +27,8 @@ func FromElems[K comparable](list ...K) Set[K] {
 		set.Add(el)
 	}
 	return set
+}
+
+func (s Set[K]) Clone() Set[K] {
+	return maps.Clone(s)
 }

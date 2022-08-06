@@ -374,14 +374,14 @@ func (p *parser) parseCompare() (nodes.Expr, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ops []nodes.Operand
+	var ops []*nodes.Operand
 
 	addOperand := func(tokenType string) error {
 		e, err := p.parseMath1()
 		if err != nil {
 			return err
 		}
-		ops = append(ops, nodes.Operand{
+		ops = append(ops, &nodes.Operand{
 			Op:           tokenType,
 			Expr:         e,
 			HelperCommon: nodes.HelperCommon{Lineno: lineno},
@@ -739,7 +739,7 @@ func (p *parser) parseCall(node nodes.Expr) (nodes.Expr, error) {
 	}, nil
 }
 
-func (p *parser) parseCallArgs() (args []nodes.Expr, kwargs []nodes.Keyword, dynArgs *nodes.Expr, dynKwargs *nodes.Expr, err error) {
+func (p *parser) parseCallArgs() (args []nodes.Expr, kwargs []*nodes.Keyword, dynArgs *nodes.Expr, dynKwargs *nodes.Expr, err error) {
 	var token *lexer.Token
 	token, err = p.stream.Expect(lexer.TokenLParen)
 	if err != nil {
@@ -799,7 +799,7 @@ func (p *parser) parseCallArgs() (args []nodes.Expr, kwargs []nodes.Keyword, dyn
 				if err != nil {
 					return
 				}
-				kwargs = append(kwargs, nodes.Keyword{
+				kwargs = append(kwargs, &nodes.Keyword{
 					Key:          key.(string),
 					Value:        expr,
 					HelperCommon: nodes.HelperCommon{Lineno: expr.GetLineno()},
@@ -845,7 +845,7 @@ func (p *parser) parseFilter(node *nodes.Expr, startInline bool) (*nodes.Expr, e
 		}
 
 		var args []nodes.Expr
-		var kwargs []nodes.Keyword
+		var kwargs []*nodes.Keyword
 		var dynArgs *nodes.Expr
 		var dynKwargs *nodes.Expr
 		if p.stream.Current().Type == lexer.TokenLParen {
@@ -1005,7 +1005,7 @@ func (p *parser) parseDict() (nodes.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		n.Items = append(n.Items, nodes.Pair{
+		n.Items = append(n.Items, &nodes.Pair{
 			Key:          key,
 			Value:        value,
 			HelperCommon: nodes.HelperCommon{Lineno: key.GetLineno()},
@@ -1158,14 +1158,14 @@ func (p *parser) parseIf() (nodes.Node, error) {
 		if err != nil {
 			return nil, err
 		}
-		node.Elif = []nodes.If{}
+		node.Elif = []*nodes.If{}
 		node.Else = []nodes.Node{}
 		token := p.stream.Next()
 		if token.Test("name:elif") {
 			node = &nodes.If{
 				StmtCommon: nodes.StmtCommon{Lineno: token.Lineno},
 			}
-			result.Elif = append(result.Elif, *node)
+			result.Elif = append(result.Elif, node)
 			continue
 		} else if token.Test("name:else") {
 			result.Else, err = p.parseStatements([]string{"name:endif"}, true)
@@ -1482,7 +1482,7 @@ func (p *parser) parseWith() (nodes.Node, error) {
 func (p *parser) parseAutoescape() (nodes.Node, error) {
 	node := &nodes.ScopedEvalContextModifier{
 		EvalContextModifier: nodes.EvalContextModifier{
-			Options:    make([]nodes.Keyword, 1),
+			Options:    make([]*nodes.Keyword, 1),
 			StmtCommon: nodes.StmtCommon{Lineno: p.stream.Next().Lineno},
 		},
 	}
@@ -1490,7 +1490,7 @@ func (p *parser) parseAutoescape() (nodes.Node, error) {
 	if err != nil {
 		return nil, err
 	}
-	node.Options[0] = nodes.Keyword{
+	node.Options[0] = &nodes.Keyword{
 		Key:          "autoescape",
 		Value:        optsExpr,
 		HelperCommon: nodes.HelperCommon{Lineno: optsExpr.GetLineno()},
@@ -1517,7 +1517,7 @@ func (p *parser) parseCallBlock() (nodes.Node, error) {
 		return nil, err
 	}
 	if call, ok := callNode.(*nodes.Call); ok {
-		node.Call = *call
+		node.Call = call
 	} else {
 		return nil, p.fail("expected call", &node.Lineno, nil)
 	}
@@ -1624,7 +1624,7 @@ func (p *parser) parseNSRef() (*nodes.NSRef, error) {
 }
 
 func (p *parser) parseSignature(n *nodes.MacroCall) error {
-	n.Args = make([]nodes.Name, 0)
+	n.Args = make([]*nodes.Name, 0)
 	n.Defaults = make([]nodes.Expr, 0)
 	if _, err := p.stream.Expect(lexer.TokenLParen); err != nil {
 		return err
@@ -1649,7 +1649,7 @@ func (p *parser) parseSignature(n *nodes.MacroCall) error {
 		} else if len(n.Defaults) != 0 {
 			return p.fail("non-default argument follows default argument", nil, nil)
 		}
-		n.Args = append(n.Args, *arg)
+		n.Args = append(n.Args, arg)
 	}
 	_, err := p.stream.Expect(lexer.TokenRParen)
 	return err

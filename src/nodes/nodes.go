@@ -1,12 +1,20 @@
 package nodes
 
 import (
+	"github.com/gojinja/gojinja/src/utils/iterator"
 	"golang.org/x/exp/slices"
 )
+
+// TODO check if all Nodes have fields in the same order as in jinja (and yield them in this order in IterChildNodes)
 
 type Node interface {
 	GetLineno() int
 	SetCtx(ctx string)
+	IterChildNodes(exclude, only []string) iterator.Iterator[Node]
+}
+
+func asNode[T Node](v T) (Node, error) {
+	return v, nil
 }
 
 type ExprWithName interface {
@@ -23,17 +31,29 @@ type NodeCommon struct {
 	Lineno int
 }
 
+func (*NodeCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	return iterator.Empty[Node]()
+}
+
 func (n *NodeCommon) GetLineno() int {
 	return n.Lineno
 }
 
 type ExprCommon NodeCommon
 
+func (*ExprCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	return iterator.Empty[Node]()
+}
+
 func (e *ExprCommon) GetLineno() int {
 	return e.Lineno
 }
 
 type StmtCommon NodeCommon
+
+func (*StmtCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	return iterator.Empty[Node]()
+}
 
 func (s *StmtCommon) GetLineno() int {
 	return s.Lineno
@@ -44,13 +64,31 @@ type StmtWithNodes interface {
 	Stmt
 }
 
-func (ExprCommon) CanAssign() bool {
+func (*ExprCommon) CanAssign() bool {
 	return false
 }
 
 type Template struct {
 	Body []Node
 	NodeCommon
+}
+
+func includeField(name string, exclude, only []string) bool {
+	// Check for nil is redundant, it's a microoptimization - it'll almost always be nil.
+	if exclude != nil && slices.Contains(exclude, name) {
+		return false
+	}
+	if only != nil && !slices.Contains(only, name) {
+		return false
+	}
+	return true
+}
+
+func (t *Template) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("body", exclude, only) {
+		return iterator.FromSlice(t.Body)
+	}
+	return iterator.Empty[Node]()
 }
 
 func (t *Template) SetCtx(ctx string) {
@@ -76,6 +114,13 @@ type Block struct {
 	StmtCommon
 }
 
+func (b *Block) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("body", exclude, only) {
+		return iterator.FromSlice(b.Body)
+	}
+	return iterator.Empty[Node]()
+}
+
 func (b *Block) SetCtx(ctx string) {
 	for _, n := range b.Body {
 		n.SetCtx(ctx)
@@ -85,6 +130,13 @@ func (b *Block) SetCtx(ctx string) {
 type Output struct {
 	Nodes []Expr
 	StmtCommon
+}
+
+func (o *Output) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("nodes", exclude, only) {
+		return iterator.Map(iterator.FromSlice(o.Nodes), asNode[Expr])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (o *Output) GetNodes() []Expr {
@@ -102,13 +154,31 @@ type Extends struct {
 	StmtCommon
 }
 
+func (e *Extends) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("template", exclude, only) {
+		return iterator.Once(Node(e.Template))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (e *Extends) SetCtx(ctx string) {
 	e.Template.SetCtx(ctx)
 }
 
 type MacroCall struct {
-	Args     []Name
+	Args     []*Name
 	Defaults []Expr
+}
+
+func (m *MacroCall) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("args", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(m.Args), asNode[*Name]))
+	}
+	if includeField("defaults", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(m.Defaults), asNode[Expr]))
+	}
+	return it
 }
 
 type Macro struct {
@@ -116,6 +186,14 @@ type Macro struct {
 	Body []Node
 	MacroCall
 	StmtCommon
+}
+
+func (m *Macro) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(m.Body))
+	}
+	return iterator.Chain(it, m.MacroCall.IterChildNodes(exclude, only))
 }
 
 func (m *Macro) SetCtx(ctx string) {
@@ -131,8 +209,15 @@ func (m *Macro) SetCtx(ctx string) {
 }
 
 type EvalContextModifier struct {
-	Options []Keyword
+	Options []*Keyword
 	StmtCommon
+}
+
+func (e *EvalContextModifier) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("options", exclude, only) {
+		return iterator.Map(iterator.FromSlice(e.Options), asNode[*Keyword])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (e *EvalContextModifier) SetCtx(ctx string) {
@@ -146,6 +231,14 @@ type ScopedEvalContextModifier struct {
 	EvalContextModifier
 }
 
+func (s *ScopedEvalContextModifier) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(s.Body))
+	}
+	return iterator.Chain(it, s.EvalContextModifier.IterChildNodes(exclude, only))
+}
+
 func (s *ScopedEvalContextModifier) SetCtx(ctx string) {
 	for _, n := range s.Body {
 		n.SetCtx(ctx)
@@ -155,6 +248,13 @@ func (s *ScopedEvalContextModifier) SetCtx(ctx string) {
 type Scope struct {
 	Body []Node
 	StmtCommon
+}
+
+func (s *Scope) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("body", exclude, only) {
+		return iterator.FromSlice(s.Body)
+	}
+	return iterator.Empty[Node]()
 }
 
 func (s *Scope) SetCtx(ctx string) {
@@ -169,6 +269,17 @@ type FilterBlock struct {
 	StmtCommon
 }
 
+func (f *FilterBlock) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(f.Body))
+	}
+	if includeField("filter", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(f.Filter)))
+	}
+	return it
+}
+
 func (f *FilterBlock) SetCtx(ctx string) {
 	for _, n := range f.Body {
 		n.SetCtx(ctx)
@@ -179,17 +290,28 @@ func (f *FilterBlock) SetCtx(ctx string) {
 type Literal Expr
 type LiteralCommon ExprCommon
 
-func (l LiteralCommon) GetLineno() int {
+func (*LiteralCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	return iterator.Empty[Node]()
+}
+
+func (l *LiteralCommon) GetLineno() int {
 	return l.Lineno
 }
 
-func (LiteralCommon) CanAssign() bool {
+func (*LiteralCommon) CanAssign() bool {
 	return false
 }
 
 type List struct {
 	Items []Expr
 	LiteralCommon
+}
+
+func (l *List) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("items", exclude, only) {
+		return iterator.Map(iterator.FromSlice(l.Items), asNode[Expr])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (l *List) SetCtx(ctx string) {
@@ -204,14 +326,32 @@ type Pair struct {
 	HelperCommon
 }
 
+func (p *Pair) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("key", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(p.Key)))
+	}
+	if includeField("value", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(p.Value)))
+	}
+	return it
+}
+
 func (p *Pair) SetCtx(ctx string) {
 	p.Key.SetCtx(ctx)
 	p.Value.SetCtx(ctx)
 }
 
 type Dict struct {
-	Items []Pair
+	Items []*Pair
 	LiteralCommon
+}
+
+func (d *Dict) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("items", exclude, only) {
+		return iterator.Map(iterator.FromSlice(d.Items), asNode[*Pair])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (d *Dict) SetCtx(ctx string) {
@@ -232,6 +372,13 @@ type Tuple struct {
 	Items []Expr
 	Ctx   string
 	LiteralCommon
+}
+
+func (t *Tuple) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("items", exclude, only) {
+		return iterator.Map(iterator.FromSlice(t.Items), asNode[Expr])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (t *Tuple) SetCtx(ctx string) {
@@ -258,11 +405,11 @@ func (n *Name) SetCtx(ctx string) {
 	n.Ctx = ctx
 }
 
-func (n Name) CanAssign() bool {
+func (n *Name) CanAssign() bool {
 	return !slices.Contains([]string{"true", "false", "none", "True", "False", "None"}, n.Name)
 }
 
-func (n Name) GetName() string {
+func (n *Name) GetName() string {
 	return n.Name
 }
 
@@ -272,13 +419,13 @@ type NSRef struct {
 	ExprCommon
 }
 
-func (n NSRef) SetCtx(string) {}
+func (n *NSRef) SetCtx(string) {}
 
-func (n NSRef) CanAssign() bool {
+func (n *NSRef) CanAssign() bool {
 	return true
 }
 
-func (n NSRef) GetName() string {
+func (n *NSRef) GetName() string {
 	return n.Name
 }
 
@@ -287,6 +434,20 @@ type CondExpr struct {
 	Expr1 Expr
 	Expr2 *Expr
 	ExprCommon
+}
+
+func (c *CondExpr) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("test", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(c.Test)))
+	}
+	if includeField("expr1", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(c.Expr1)))
+	}
+	if c.Expr2 != nil && includeField("expr2", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*c.Expr2)))
+	}
+	return it
 }
 
 func (c *CondExpr) SetCtx(ctx string) {
@@ -300,14 +461,25 @@ func (c *CondExpr) SetCtx(ctx string) {
 type Helper Node
 type HelperCommon NodeCommon
 
-func (h HelperCommon) GetLineno() int {
+func (*HelperCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	return iterator.Empty[Node]()
+}
+
+func (h *HelperCommon) GetLineno() int {
 	return h.Lineno
 }
 
 type Operand struct {
 	Op   string
-	Expr Node
+	Expr Expr
 	HelperCommon
+}
+
+func (o *Operand) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("expr", exclude, only) {
+		return iterator.Once(Node(o.Expr))
+	}
+	return iterator.Empty[Node]()
 }
 
 func (o *Operand) SetCtx(ctx string) {
@@ -316,8 +488,19 @@ func (o *Operand) SetCtx(ctx string) {
 
 type Compare struct {
 	Expr Expr
-	Ops  []Operand
+	Ops  []*Operand
 	ExprCommon
+}
+
+func (c *Compare) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("expr", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(c.Expr)))
+	}
+	if includeField("ops", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(c.Ops), asNode[*Operand]))
+	}
+	return it
 }
 
 func (c *Compare) SetCtx(ctx string) {
@@ -334,6 +517,17 @@ type BinExpr struct {
 	ExprCommon
 }
 
+func (b *BinExpr) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("left", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(b.Left)))
+	}
+	if includeField("rif=ght", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(b.Right)))
+	}
+	return it
+}
+
 func (b *BinExpr) SetCtx(ctx string) {
 	b.Left.SetCtx(ctx)
 	b.Right.SetCtx(ctx)
@@ -342,6 +536,13 @@ func (b *BinExpr) SetCtx(ctx string) {
 type Concat struct {
 	Nodes []Expr
 	ExprCommon
+}
+
+func (c *Concat) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("nodes", exclude, only) {
+		return iterator.Map(iterator.FromSlice(c.Nodes), asNode[Expr])
+	}
+	return iterator.Empty[Node]()
 }
 
 func (c *Concat) SetCtx(ctx string) {
@@ -356,6 +557,13 @@ type UnaryExpr struct {
 	ExprCommon
 }
 
+func (u *UnaryExpr) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("node", exclude, only) {
+		return iterator.Once(Node(u.Node))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (u *UnaryExpr) SetCtx(ctx string) {
 	u.Node.SetCtx(ctx)
 }
@@ -365,6 +573,13 @@ type Getattr struct {
 	Attr string
 	Ctx  string
 	ExprCommon
+}
+
+func (g *Getattr) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("node", exclude, only) {
+		return iterator.Once(Node(g.Node))
+	}
+	return iterator.Empty[Node]()
 }
 
 func (g *Getattr) SetCtx(ctx string) {
@@ -378,6 +593,17 @@ type Getitem struct {
 	ExprCommon
 }
 
+func (g *Getitem) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("node", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(g.Node)))
+	}
+	if includeField("arg", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(g.Arg)))
+	}
+	return it
+}
+
 func (g *Getitem) SetCtx(ctx string) {
 	g.Node.SetCtx(ctx)
 }
@@ -387,6 +613,20 @@ type Slice struct {
 	Stop  *Expr
 	Step  *Expr
 	ExprCommon
+}
+
+func (s *Slice) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if s.Start != nil && includeField("start", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*s.Start)))
+	}
+	if s.Stop != nil && includeField("stop", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*s.Stop)))
+	}
+	if s.Step != nil && includeField("step", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*s.Step)))
+	}
+	return it
 }
 
 func (s *Slice) SetCtx(ctx string) {
@@ -404,10 +644,30 @@ func (s *Slice) SetCtx(ctx string) {
 type Call struct {
 	Node      Expr
 	Args      []Expr
-	Kwargs    []Keyword
+	Kwargs    []*Keyword
 	DynArgs   *Expr
 	DynKwargs *Expr
 	ExprCommon
+}
+
+func (c *Call) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("node", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(c.Node)))
+	}
+	if includeField("args", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(c.Args), asNode[Expr]))
+	}
+	if includeField("kwargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(c.Kwargs), asNode[*Keyword]))
+	}
+	if c.DynArgs != nil && includeField("dynargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*c.DynArgs)))
+	}
+	if c.DynKwargs != nil && includeField("dynkwargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*c.DynKwargs)))
+	}
+	return it
 }
 
 func (c *Call) SetCtx(ctx string) {
@@ -433,6 +693,13 @@ type Include struct {
 	StmtCommon
 }
 
+func (i *Include) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("template", exclude, only) {
+		return iterator.Once(Node(i.Template))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (i *Include) SetWithContext(b bool) {
 	i.WithContext = b
 }
@@ -447,6 +714,17 @@ type Assign struct {
 	StmtCommon
 }
 
+func (a *Assign) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("target", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(a.Target)))
+	}
+	if includeField("node", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(a.Node))
+	}
+	return it
+}
+
 func (a *Assign) SetCtx(ctx string) {
 	a.Target.SetCtx(ctx)
 	a.Node.SetCtx(ctx)
@@ -457,6 +735,20 @@ type AssignBlock struct {
 	Body   []Node
 	Filter *Filter
 	StmtCommon
+}
+
+func (a *AssignBlock) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("target", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(a.Target)))
+	}
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(a.Body))
+	}
+	if a.Filter != nil && includeField("filter", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(a.Filter)))
+	}
+	return it
 }
 
 func (a *AssignBlock) SetCtx(ctx string) {
@@ -474,6 +766,20 @@ type With struct {
 	Values  []Expr
 	Body    []Node
 	StmtCommon
+}
+
+func (w *With) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("targets", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(w.Targets), asNode[Expr]))
+	}
+	if includeField("values", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(w.Values), asNode[Expr]))
+	}
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(w.Body))
+	}
+	return it
 }
 
 func (w *With) SetCtx(ctx string) {
@@ -495,6 +801,13 @@ type FromImport struct {
 	StmtCommon
 }
 
+func (f *FromImport) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("template", exclude, only) {
+		return iterator.Once(Node(f.Template))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (f *FromImport) SetWithContext(b bool) {
 	f.WithContext = b
 }
@@ -510,6 +823,13 @@ type Import struct {
 	StmtCommon
 }
 
+func (i *Import) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("template", exclude, only) {
+		return iterator.Once(Node(i.Template))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (i *Import) SetWithContext(b bool) {
 	i.WithContext = b
 }
@@ -522,7 +842,7 @@ type FilterTestCommon struct {
 	Node      *Expr
 	Name      string
 	Args      []Expr
-	Kwargs    []Keyword // Jinja uses Pair but then other methods returns Keyword instead of Pair -_-
+	Kwargs    []*Keyword // Jinja uses Pair but then other methods returns Keyword instead of Pair -_-
 	DynArgs   *Expr
 	DynKwargs *Expr
 	ExprCommon
@@ -534,6 +854,26 @@ type Filter struct {
 
 type Test struct {
 	FilterTestCommon
+}
+
+func (f *FilterTestCommon) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if f.Node != nil && includeField("node", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*f.Node)))
+	}
+	if includeField("args", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(f.Args), asNode[Expr]))
+	}
+	if includeField("kwargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(f.Kwargs), asNode[*Keyword]))
+	}
+	if f.DynArgs != nil && includeField("dynargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*f.DynArgs)))
+	}
+	if f.DynKwargs != nil && includeField("dynkwargs", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(*f.DynKwargs)))
+	}
+	return it
 }
 
 func (f *FilterTestCommon) SetCtx(ctx string) {
@@ -560,16 +900,40 @@ type Keyword struct {
 	HelperCommon
 }
 
+func (k *Keyword) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	if includeField("value", exclude, only) {
+		return iterator.Once(Node(k.Value))
+	}
+	return iterator.Empty[Node]()
+}
+
 func (k *Keyword) SetCtx(ctx string) {
 	k.Value.SetCtx(ctx)
 }
 
 type If struct {
-	Test Node
+	Test Expr // jinja says it's Node, but having it as expr makes much more sense
 	Body []Node
-	Elif []If
+	Elif []*If
 	Else []Node
 	StmtCommon
+}
+
+func (i *If) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("test", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(i.Test)))
+	}
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(i.Body))
+	}
+	if includeField("elif", exclude, only) {
+		it = iterator.Chain(it, iterator.Map(iterator.FromSlice(i.Elif), asNode[*If]))
+	}
+	if includeField("else", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(i.Else))
+	}
+	return it
 }
 
 func (i *If) SetCtx(ctx string) {
@@ -586,10 +950,21 @@ func (i *If) SetCtx(ctx string) {
 }
 
 type CallBlock struct {
-	Call Call
+	Call *Call
 	Body []Node
 	MacroCall
 	StmtCommon
+}
+
+func (c *CallBlock) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if c.Call != nil && includeField("call", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(Node(c.Call)))
+	}
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(c.Body))
+	}
+	return iterator.Chain(it, c.MacroCall.IterChildNodes(exclude, only))
 }
 
 func (c *CallBlock) SetCtx(ctx string) {
@@ -613,6 +988,26 @@ type For struct {
 	Test      *Node
 	Recursive bool
 	StmtCommon
+}
+
+func (f *For) IterChildNodes(exclude, only []string) iterator.Iterator[Node] {
+	it := iterator.Empty[Node]()
+	if includeField("target", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(f.Target))
+	}
+	if includeField("iter", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(f.Iter))
+	}
+	if includeField("body", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(f.Body))
+	}
+	if includeField("else", exclude, only) {
+		it = iterator.Chain(it, iterator.FromSlice(f.Else))
+	}
+	if f.Test != nil && includeField("test", exclude, only) {
+		it = iterator.Chain(it, iterator.Once(*f.Test))
+	}
+	return it
 }
 
 func (f *For) SetCtx(ctx string) {
@@ -640,7 +1035,6 @@ var _ Stmt = &Output{}
 var _ Stmt = &If{}
 var _ Stmt = &ScopedEvalContextModifier{}
 var _ Stmt = &EvalContextModifier{}
-var _ Stmt = &Output{}
 var _ Stmt = &CallBlock{}
 var _ Stmt = &Include{}
 var _ Stmt = &Import{}

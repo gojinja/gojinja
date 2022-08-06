@@ -364,6 +364,15 @@ func GetItem(a any, b any) (any, error) {
 }
 
 func Bool(a any) (bool, error) {
+	// TODO I don't think it should work that way,
+	// IMO:
+	// bool -> just convert
+	// numeric -> != 0
+	// pointer -> check if != nil
+	// slice -> check if empty
+	// map -> check if empty
+	// struct -> always true
+	// TODO the current implementation returns true for empty (but not nil) slices, maps etc.
 	if i, ok := a.(IBool); ok {
 		return i.Bool()
 	}
@@ -411,6 +420,7 @@ func Len(a any) (int, error) {
 	}
 }
 
+// Contains checks if a contains b
 func Contains(a, b any) (bool, error) {
 	if i, ok := a.(IContains); ok {
 		return i.Contains(b)

@@ -42,7 +42,7 @@ var cases = []parserTest{
 							Ctx:        "load",
 							ExprCommon: nodes.ExprCommon{Lineno: 1},
 						},
-						Ops: []nodes.Operand{
+						Ops: []*nodes.Operand{
 							{
 								Op: "ne",
 								Expr: &nodes.Const{
@@ -70,7 +70,7 @@ var cases = []parserTest{
 							StmtCommon: nodes.StmtCommon{Lineno: 1},
 						},
 					},
-					Elif:       []nodes.If{},
+					Elif:       []*nodes.If{},
 					Else:       []nodes.Node{},
 					StmtCommon: nodes.StmtCommon{Lineno: 1},
 				},
