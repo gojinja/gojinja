@@ -39,6 +39,7 @@ type renderer struct {
 	//         # registry of all filters and tests (global, not block local)
 	//        self.tests: t.Dict[str, str] = {}
 	//        self.filters: t.Dict[str, str] = {}
+	assignStack []set.Set[string]
 
 	paramDefBlock []set.Set[string]
 }

@@ -162,10 +162,10 @@ func (ev *evaluator) evalCompare(expr *nodes.Compare) (any, error) {
 
 func (ev *evaluator) evalName(name *nodes.Name) (any, error) {
 	if name.Ctx == "store" && (ev.frame.toplevel || ev.frame.loopFrame || ev.frame.blockFrame) {
-		// TODO support stores in expressions
-		//if ev.frame.assignStack != nil {
-		//	ev.frame.assignStack.lastElement().add(name.Name)
-		//}
+		if len(ev.renderer.assignStack) > 0 {
+			// TODO need to do anything more to actually store it?
+			ev.renderer.assignStack[len(ev.renderer.assignStack)-1].Add(name.Name)
+		}
 	}
 
 	ref, err := ev.frame.symbols.ref(name.Name)
